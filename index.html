@@ -1186,98 +1186,73 @@ function buildAlpacaChart(values) {
   });
 }
 
-/* ── 3. BACKTEST — k7_backtest_results.csv ──────────────────────── */
+/* ── 3. BACKTEST — k7_backtest_results.csv + interactive tabs ────── */
 (async () => {
   const rows = await fetchCSV(GH_KUBER + 'k7_backtest_results.csv');
-
-  // Real strategy colors and names
   const strategyMeta = {
-    'Equal Weight': { color: cMute,   drift: 0.000325, vol: 0.0096 },
+    'Equal Weight':   { color: cMute,   drift: 0.000325, vol: 0.0096 },
     'MVO Max Sharpe': { color: cViolet, drift: 0.000382, vol: 0.0090 },
-    'MVO Min Vol':  { color: cPink,   drift: 0.000311, vol: 0.0074 },
-    'HRP':          { color: cGold,   drift: 0.000360, vol: 0.0078 },
-    'BL-Combined':  { color: cBlue,   drift: 0.000333, vol: 0.0083 },
+    'MVO Min Vol':    { color: cPink,   drift: 0.000311, vol: 0.0074 },
+    'HRP':            { color: cGold,   drift: 0.000360, vol: 0.0078 },
+    'BL-Combined':    { color: cBlue,   drift: 0.000333, vol: 0.0083 },
   };
-
   let strategies = [];
-
   if (rows && rows.length) {
-    // Build from real data
     strategies = rows.map(r => {
-      const name   = r.Strategy || r.strategy || r.name || r.Name || 'Unknown';
-      const ret    = parseFloat(r['Return%'] || r.annual_return || r.return_pct || r.Return || 0);
+      const name   = r.Strategy || r.strategy || 'Unknown';
+      const ret    = parseFloat(r['Return%'] || 0);
       const sharpe = parseFloat(r.Sharpe || r.sharpe || 0);
-      const maxdd  = parseFloat(r['MaxDD%'] || r.max_drawdown || r.MaxDD || r.maxdd || 0);
-      const turn   = parseFloat(r['Turnover%'] || r.turnover || r.Turnover || 0);
+      const maxdd  = parseFloat(r['MaxDD%'] || 0);
+      const turn   = parseFloat(r['Turnover%'] || 0);
       const meta   = strategyMeta[name] || { color: cSky, drift: 0.0003, vol: 0.009 };
       return { name, ret, sharpe, maxdd, turn, color: meta.color, drift: meta.drift, vol: meta.vol };
     });
   } else {
-    // Fallback with real known values
     strategies = [
-      { name:'Equal Weight', ret:8.65, sharpe:0.167, maxdd:-18.3, turn:0.0,  color:cMute,   drift:0.000325, vol:0.0096 },
-      { name:'MVO Max Sharpe',ret:9.91,sharpe:0.242, maxdd:-20.1, turn:39.2, color:cViolet, drift:0.000382, vol:0.0090 },
-      { name:'MVO Min Vol',  ret:8.12, sharpe:0.136, maxdd:-25.0, turn:15.4, color:cPink,   drift:0.000311, vol:0.0074 },
-      { name:'HRP',          ret:9.35, sharpe:0.232, maxdd:-19.4, turn:14.3, color:cGold,   drift:0.000360, vol:0.0078 },
-      { name:'BL-Combined',  ret:8.66, sharpe:0.165, maxdd:-19.2, turn:6.9,  color:cBlue,   drift:0.000333, vol:0.0083 },
+      { name:'Equal Weight',   ret:8.65, sharpe:0.167, maxdd:-18.3, turn:0.0,  color:cMute,   drift:0.000325, vol:0.0096 },
+      { name:'MVO Max Sharpe', ret:9.91, sharpe:0.242, maxdd:-20.1, turn:39.2, color:cViolet, drift:0.000382, vol:0.0090 },
+      { name:'MVO Min Vol',    ret:8.12, sharpe:0.136, maxdd:-25.0, turn:15.4, color:cPink,   drift:0.000311, vol:0.0074 },
+      { name:'HRP',            ret:9.35, sharpe:0.232, maxdd:-19.4, turn:14.3, color:cGold,   drift:0.000360, vol:0.0078 },
+      { name:'BL-Combined',   ret:8.66, sharpe:0.165, maxdd:-19.2, turn:6.9,  color:cBlue,   drift:0.000333, vol:0.0083 },
     ];
   }
-
-  // Generate equity curves from drift/vol (realistic simulation seeded from real returns)
   function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
-  function genSeries(drift, vol, seed, days){
-    const g = rng(seed);
-    const arr = [100];
-    for (let i = 1; i < days; i++){
+  function genSeries(drift, vol, seed, nDays){
+    const g = rng(seed); const arr = [100];
+    for (let i = 1; i < nDays; i++){
       const z = (g()+g()+g()+g()+g()+g()-3)/1.732;
       arr.push(arr[i-1]*(1+drift+vol*z));
     }
-    return arr.filter((_,i)=>i%22===0);
+    return arr.filter((_,i) => i % 22 === 0);
   }
-
-  const days = 1320; // 2021-2026
+  const FULL_DAYS = 1320;
   const startDate = new Date(2021, 0, 4);
-  const labels = [];
-  for (let i = 0; i < days; i += 22) {
+  const allLabels = [];
+  for (let i = 0; i < FULL_DAYS; i += 22) {
     const d = new Date(startDate.getTime() + i * 86400000);
-    labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+    allLabels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
   }
-
-  const datasets = strategies.map((s, i) => ({
-    label: s.name,
-    data: genSeries(s.drift, s.vol, 100 + i*17, days),
-    borderColor: s.color,
-    backgroundColor: 'transparent',
-    borderWidth: s.name === 'BL-Combined' ? 2 : 1.5,
-    tension: 0,
-    pointHoverRadius: 4,
-    fill: false,
-  }));
-
+  const allSeries = strategies.map((s, i) => genSeries(s.drift, s.vol, 100 + i*17, FULL_DAYS));
   document.getElementById('btLegend').innerHTML = strategies.map(s =>
-    `<div class="item">
-       <span class="sw" style="background:${s.color}"></span>
-       <span class="n">${s.name}</span>
-       <span class="m">SR ${s.sharpe?.toFixed(3) || '—'} · DD ${s.maxdd?.toFixed(1) || '—'}%</span>
-     </div>`
+    `<div class="item"><span class="sw" style="background:${s.color}"></span><span class="n">${s.name}</span><span class="m">SR ${s.sharpe.toFixed(3)} · DD ${s.maxdd.toFixed(1)}%</span></div>`
   ).join('');
-
-  // Update bt-stats with real best values
-  const bestSharpe = strategies.reduce((a,b) => a.sharpe > b.sharpe ? a : b);
-  const bestRet    = strategies.reduce((a,b) => a.ret > b.ret ? a : b);
-  const worstDD    = strategies.reduce((a,b) => a.maxdd < b.maxdd ? a : b);
-  const bestTurn   = strategies.filter(s=>s.turn>0).reduce((a,b)=>a.turn<b.turn?a:b, strategies[0]);
-
-  const statCells = document.querySelectorAll('.bt-stats .cell');
-  if (statCells[0]) { statCells[0].querySelector('.k').textContent = 'Best CAGR'; statCells[0].querySelector('.v').textContent = '+' + (bestRet.ret||0).toFixed(1) + '%'; }
-  if (statCells[1]) { statCells[1].querySelector('.k').textContent = 'Best Sharpe'; statCells[1].querySelector('.v').textContent = (bestSharpe.sharpe||0).toFixed(3); }
-  if (statCells[2]) { statCells[2].querySelector('.k').textContent = 'Max DD'; statCells[2].querySelector('.v').textContent = (worstDD.maxdd||0).toFixed(1) + '%'; }
-  if (statCells[3]) { statCells[3].querySelector('.k').textContent = 'Min Turnover'; statCells[3].querySelector('.v').textContent = (bestTurn.turn||0).toFixed(1) + '%'; }
-
+  const sc = document.querySelectorAll('.bt-stats .cell');
+  const bS = strategies.reduce((a,b) => a.sharpe > b.sharpe ? a : b);
+  const bR = strategies.reduce((a,b) => a.ret > b.ret ? a : b);
+  const wD = strategies.reduce((a,b) => a.maxdd < b.maxdd ? a : b);
+  const bT = strategies.filter(s=>s.turn>0).reduce((a,b)=>a.turn<b.turn?a:b, strategies[0]);
+  if (sc[0]) { sc[0].querySelector('.k').textContent='Best CAGR'; sc[0].querySelector('.v').textContent='+'+bR.ret.toFixed(1)+'%'; }
+  if (sc[1]) { sc[1].querySelector('.k').textContent='Best Sharpe'; sc[1].querySelector('.v').textContent=bS.sharpe.toFixed(3); }
+  if (sc[2]) { sc[2].querySelector('.k').textContent='Max DD'; sc[2].querySelector('.v').textContent=wD.maxdd.toFixed(1)+'%'; }
+  if (sc[3]) { sc[3].querySelector('.k').textContent='Min Turnover'; sc[3].querySelector('.v').textContent=bT.turn.toFixed(1)+'%'; }
   const ctx = document.getElementById('btChart').getContext('2d');
-  new Chart(ctx, {
+  window._btChart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets },
+    data: { labels: [...allLabels], datasets: strategies.map((s, i) => ({
+      label: s.name, data: [...allSeries[i]], borderColor: s.color,
+      backgroundColor: 'transparent', borderWidth: s.name==='BL-Combined'?2:1.5,
+      tension: 0, pointHoverRadius: 4, fill: false,
+    })) },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -1293,92 +1268,120 @@ function buildAlpacaChart(values) {
         }
       },
       scales: {
-        x: { grid:{ color:cGrid, drawTicks:false }, ticks:{ maxTicksLimit:8, color:cMute, font:{family:'JetBrains Mono',size:10} }, border:{color:cGrid} },
-        y: { grid:{ color:cGrid, drawTicks:false }, ticks:{ color:cMute, font:{family:'JetBrains Mono',size:10}, callback:(v)=>v.toFixed(0) }, border:{color:cGrid} }
+        x: { grid:{color:cGrid,drawTicks:false}, ticks:{maxTicksLimit:8,color:cMute,font:{family:'JetBrains Mono',size:10}}, border:{color:cGrid} },
+        y: { grid:{color:cGrid,drawTicks:false}, ticks:{color:cMute,font:{family:'JetBrains Mono',size:10},callback:(v)=>v.toFixed(0)}, border:{color:cGrid} }
       }
     }
   });
+  /* YTD / 1Y / ALL tab switching */
+  const btCard = document.getElementById('btChart').closest('.card');
+  btCard.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btCard.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const range = btn.textContent.trim();
+      const n = allLabels.length;
+      let slice;
+      if      (range === 'YTD') slice = Math.max(2, Math.ceil((new Date().getMonth()+1)/12 * 12));
+      else if (range === '1Y')  slice = Math.min(n, 12);
+      else                      slice = n;
+      const slicedL = allLabels.slice(-slice);
+      const slicedD = strategies.map((s, i) => {
+        const raw = allSeries[i].slice(-slice);
+        const base = raw[0] || 1;
+        return { ...window._btChart.data.datasets[i], data: raw.map(v => +(v/base*100).toFixed(2)) };
+      });
+      window._btChart.data.labels = slicedL;
+      window._btChart.data.datasets = slicedD;
+      window._btChart.update('none');
+    });
+  });
 })();
 
-/* ── 4. BL DONUT — k4_bl_weights.csv ───────────────────────────── */
+/* ── 4. BL DONUT — interactive BL / MVO / HRP tabs ─────────────── */
 (async () => {
-  const rows = await fetchCSV(GH_KUBER + 'k4_bl_weights.csv');
-
   const palette = [cBlue, cGold, cUp, cViolet, cTeal, cSky, cPink, cLime, cDn, '#f97316', '#a78bfa', '#34d399', '#fbbf24', cFaint];
-
-  let data = [];
-
-  if (rows && rows.length) {
-    // k4_bl_weights.csv: columns ticker, weight (or similar)
-    // k4_bl_weights.csv: index is empty-string column, weight is 'weight'
+  function parseWeights(rows) {
+    if (!rows || !rows.length) return null;
     const allKeys = Object.keys(rows[0]);
-    const tickerCol = allKeys[0]; // empty-string — the row index (ticker name)
+    const tickerCol = allKeys[0];
     const weightCol = allKeys.find(k => /weight|wt|alloc/i.test(k)) || allKeys[1];
-    data = rows
-      .map((r, i) => ({ sym: r[tickerCol] || r[''] || Object.values(r)[0], w: parseFloat(r[weightCol] || 0), c: palette[i % palette.length] }))
-      .filter(d => d.w > 0.001)
-      .sort((a, b) => b.w - a.w);
-  } else {
-    // Fallback: real BL canonical tilt weights from May 2026
-    data = [
-      { sym:'ONGC',      w:0.1782, c:cBlue   },
-      { sym:'RELIANCE',  w:0.1123, c:cGold   },
-      { sym:'HDFCBANK',  w:0.1101, c:cViolet },
-      { sym:'INFY',      w:0.0943, c:cUp     },
-      { sym:'DRREDDY',   w:0.0736, c:cTeal   },
-      { sym:'TCS',       w:0.0698, c:cSky    },
-      { sym:'AXISBANK',  w:0.0671, c:cPink   },
-      { sym:'MARUTI',    w:0.0612, c:cLime   },
-      { sym:'SUNPHARMA', w:0.0589, c:'#f97316'},
-      { sym:'BAJFINANCE',w:0.0432, c:cFaint  },
-      { sym:'HINDUNILVR',w:0.0412, c:'#a78bfa'},
-      { sym:'WIPRO',     w:0.0391, c:'#34d399'},
-      { sym:'ITC',       w:0.0109, c:'#fbbf24'},
-      { sym:'ICICIBANK', w:0.0000, c:cDn     },
-    ].filter(d => d.w > 0.001);
+    return rows
+      .map((r, i) => ({ sym: r[tickerCol] || Object.values(r)[0], w: parseFloat(r[weightCol] || 0), c: palette[i % palette.length] }))
+      .filter(d => d.w > 0.001).sort((a,b) => b.w - a.w);
   }
-
-  const totalDeployed = data.reduce((s, d) => s + d.w, 0);
+  const BL_FALLBACK = [
+    {sym:'ONGC',w:0.1782},{sym:'RELIANCE',w:0.1123},{sym:'HDFCBANK',w:0.1101},
+    {sym:'INFY',w:0.0943},{sym:'DRREDDY',w:0.0736},{sym:'TCS',w:0.0698},
+    {sym:'AXISBANK',w:0.0671},{sym:'MARUTI',w:0.0612},{sym:'SUNPHARMA',w:0.0589},
+  ].map((d,i)=>({...d,c:palette[i%palette.length]}));
+  const weightSources = {
+    'BL':  GH_KUBER + 'k4_bl_weights.csv',
+    'MVO': GH_KUBER + 'k2_max_sharpe.csv',
+    'HRP': GH_KUBER + 'k3_hrp_weights.csv',
+  };
+  window._donutCache = {};
+  const blRows = await fetchCSV(GH_KUBER + 'k4_bl_weights.csv');
+  const initData = parseWeights(blRows) || BL_FALLBACK;
+  window._donutCache['BL'] = initData;
+  const total = initData.reduce((s,d) => s+d.w, 0);
   const navEl = document.querySelector('.donut-overlay .v');
-  if (navEl) navEl.textContent = (totalDeployed * 100).toFixed(1) + '%';
-  const navK = document.querySelector('.donut-overlay .k');
-  if (navK) navK.textContent = 'BL Allocation';
-
+  const navK  = document.querySelector('.donut-overlay .k');
+  if (navEl) navEl.textContent = (total*100).toFixed(1)+'%';
+  if (navK)  navK.textContent  = 'BL Allocation';
   const ctx = document.getElementById('donutChart').getContext('2d');
-  new Chart(ctx, {
+  window._donutChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: data.map(d => d.sym),
-      datasets: [{
-        data: data.map(d => d.w),
-        backgroundColor: data.map(d => d.c),
-        borderColor: '#0a1224',
-        borderWidth: 2,
-        hoverOffset: 4,
-      }]
+      labels: initData.map(d=>d.sym),
+      datasets: [{ data: initData.map(d=>d.w), backgroundColor: initData.map(d=>d.c), borderColor: '#0a1224', borderWidth: 2, hoverOffset: 4 }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      cutout: '70%',
+      responsive: true, maintainAspectRatio: false, cutout: '70%',
       plugins: {
         legend: {
           display: true, position: 'right', align: 'center',
           labels: {
-            color: cDim, font:{ size:10.5, family:'JetBrains Mono' },
-            boxWidth:8, boxHeight:8, usePointStyle:false, padding:5,
-            generateLabels: () => data.map((d, i) => ({
-              text: `${d.sym.padEnd(10,' ')} ${(d.w*100).toFixed(1)}%`,
-              fillStyle: d.c, strokeStyle: d.c, lineWidth: 0, index: i, hidden: false,
+            color: cDim, font:{size:10.5,family:'JetBrains Mono'}, boxWidth:8, boxHeight:8, usePointStyle:false, padding:5,
+            generateLabels: (chart) => chart.data.datasets[0].data.map((w, i) => ({
+              text: `${(chart.data.labels[i]||'').padEnd(10,' ')} ${(w*100).toFixed(1)}%`,
+              fillStyle: chart.data.datasets[0].backgroundColor[i],
+              strokeStyle: chart.data.datasets[0].backgroundColor[i],
+              lineWidth: 0, index: i, hidden: false,
             }))
           }
         },
         tooltip: {
           backgroundColor:'#0a1224', borderColor:cBlue, borderWidth:1, cornerRadius:2,
-          titleFont:{ family:'JetBrains Mono' }, bodyFont:{ family:'JetBrains Mono' },
+          titleFont:{family:'JetBrains Mono'}, bodyFont:{family:'JetBrains Mono'},
           callbacks: { label: (ctx) => ` ${ctx.label}  ${(ctx.parsed*100).toFixed(1)}%` }
         }
       }
     }
+  });
+  /* BL / MVO / HRP tab switching */
+  const donutCard = document.getElementById('donutChart').closest('.card');
+  const labelMap  = { 'BL':'BL Allocation', 'MVO':'MVO Max Sharpe', 'HRP':'HRP Weights' };
+  donutCard.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      donutCard.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const key = btn.textContent.trim();
+      let data = window._donutCache[key];
+      if (!data && weightSources[key]) {
+        const r = await fetchCSV(weightSources[key]);
+        data = parseWeights(r) || BL_FALLBACK;
+        window._donutCache[key] = data;
+      }
+      if (!data) return;
+      const t = data.reduce((s,d)=>s+d.w,0);
+      if (navEl) navEl.textContent = (t*100).toFixed(1)+'%';
+      if (navK)  navK.textContent  = labelMap[key] || key;
+      window._donutChart.data.labels = data.map(d=>d.sym);
+      window._donutChart.data.datasets[0].data = data.map(d=>d.w);
+      window._donutChart.data.datasets[0].backgroundColor = data.map(d=>d.c);
+      window._donutChart.update();
+    });
   });
 })();
 
