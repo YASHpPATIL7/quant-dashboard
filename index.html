@@ -1149,10 +1149,42 @@ Chart.defaults.elements.line.borderWidth = 1.5;
   buildAlpacaChart(values);
 })();
 
+/* ── Alpaca 1D / 1W / 1M tab wiring ── */
+window._alpacaAllRows = null;
+(async () => {
+  const rows = await fetchCSV(GH_ALPACA);
+  if (!rows || !rows.length) return;
+  window._alpacaAllRows = rows;
+  const alpacaCard = document.getElementById('alpacaChart').closest('.card');
+  alpacaCard.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      alpacaCard.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const range = btn.textContent.trim();
+      const all = window._alpacaAllRows || [];
+      let sliced;
+      if      (range === '1D') sliced = all.slice(-1);
+      else if (range === '1W') sliced = all.slice(-5);
+      else if (range === '1M') sliced = all.slice(-21);
+      else                     sliced = all;
+      const vals = sliced.map(r => parseFloat(r.Portfolio_Value || 100000)).filter(v => !isNaN(v));
+      if (!vals.length) return;
+      if (window._alpacaChartInst) {
+        const isUp = vals[vals.length-1] >= vals[0];
+        window._alpacaChartInst.data.labels = vals.map((_,i)=>i);
+        window._alpacaChartInst.data.datasets[0].data = vals;
+        window._alpacaChartInst.data.datasets[0].borderColor = isUp ? cUp : cDn;
+        window._alpacaChartInst.update('none');
+      }
+    });
+  });
+})();
+
 function buildAlpacaChart(values) {
   const ctx = document.getElementById('alpacaChart').getContext('2d');
   const isUp = values[values.length-1] >= values[0];
-  new Chart(ctx, {
+  if (window._alpacaChartInst) { window._alpacaChartInst.destroy(); }
+  window._alpacaChartInst = new Chart(ctx, {
     type: 'line',
     data: {
       labels: values.map((_, i) => i),
@@ -1508,6 +1540,60 @@ function buildAlpacaChart(values) {
     }
   }
   grid.innerHTML = html;
+})();
+
+/* ── Correlation heatmap 30d / 60d / 120d / 1Y tab wiring ── */
+(async () => {
+  const corrSources = {
+    '30d':  GH_KUBER + 'dcc_correlation_30d.csv',
+    '60d':  GH_KUBER + 'dcc_correlation.csv',
+    '120d': GH_KUBER + 'dcc_correlation_120d.csv',
+    '1Y':   GH_KUBER + 'dcc_correlation_1y.csv',
+  };
+  const corrCache = {};
+  function renderHeatmap(rows) {
+    if (!rows || !rows.length) return;
+    const allKeys  = Object.keys(rows[0]);
+    let tickers = allKeys.filter(k => k !== '');
+    const corr  = rows.map(r => tickers.map(t => parseFloat(r[t] || 0)));
+    tickers = tickers.map(t => t.replace('HINDUNILVR','HNLVR').replace('BAJFINANCE','BAJFIN')
+      .replace('ICICIBANK','ICICI').replace('HDFCBANK','HDFC').replace('SUNPHARMA','SUNPH')
+      .replace('AXISBANK','AXIS').replace('RELIANCE','RELI'));
+    function colorFor(v) {
+      return v >= 0
+        ? `rgba(14, 165, 233, ${(0.05 + Math.abs(v) * 0.80).toFixed(3)})`
+        : `rgba(239, 68, 68,  ${(0.05 + Math.abs(v) * 0.80).toFixed(3)})`;
+    }
+    const n = tickers.length;
+    const grid = document.getElementById('heatGrid');
+    grid.style.gridTemplateColumns = `36px repeat(${n}, 1fr)`;
+    let html = '<div class="corner"></div>';
+    for (let j = 0; j < n; j++) html += `<div class="lblx">${tickers[j]}</div>`;
+    for (let i = 0; i < n; i++) {
+      html += `<div class="lbly">${tickers[i]}</div>`;
+      for (let j = 0; j < n; j++) {
+        const v = corr[i] ? corr[i][j] : 0;
+        const isDiag = i === j;
+        const label = v === 1 ? '1.0' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2).replace('0.','.');
+        html += `<div class="cell${isDiag?' diag':''}" style="background:${colorFor(v)}" title="${tickers[i]} × ${tickers[j]}  ${(v||0).toFixed(2)}">${label}</div>`;
+      }
+    }
+    grid.innerHTML = html;
+  }
+  const heatCard = document.getElementById('heatGrid').closest('.card');
+  heatCard.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      heatCard.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const key = btn.textContent.trim();
+      let rows = corrCache[key];
+      if (!rows && corrSources[key]) {
+        rows = await fetchCSV(corrSources[key]);
+        if (rows) corrCache[key] = rows;
+      }
+      if (rows) renderHeatmap(rows);
+    });
+  });
 })();
 
 /* ── Live session clock ─────────────────────────────────────────── */
