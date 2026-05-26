@@ -1053,7 +1053,7 @@ Chart.defaults.elements.line.borderWidth = 1.5;
 
   // Latest regime
   const latest = rows[rows.length - 1];
-  const regime = (latest.regime || latest.label || latest.Regime || '').toUpperCase();
+  const regime = (latest.regime_name || latest.regime || latest.label || latest.Regime || '').toUpperCase();
 
   // Update regime pill
   const pill = document.querySelector('.pill');
@@ -1078,7 +1078,7 @@ Chart.defaults.elements.line.borderWidth = 1.5;
   // Alpha-Core IC badge
   const xgbRows = await fetchCSV(GH_ALPHA + 'xgb_predictions.csv');
   if (xgbRows && xgbRows.length) {
-    const ics = xgbRows.map(r => Math.abs(parseFloat(r.ic || r.IC || 0))).filter(v => !isNaN(v) && v > 0);
+    const ics = xgbRows.map(r => Math.abs(parseFloat(r.ic_test || r.ic || r.IC || 0))).filter(v => !isNaN(v) && v > 0);
     const avgIC = ics.length ? (ics.reduce((a, b) => a + b, 0) / ics.length).toFixed(3) : '—';
     const alphaBadge = document.querySelector('.badge.alpha .meta');
     if (alphaBadge) alphaBadge.textContent = `XGB · IC ${avgIC}`;
@@ -1195,11 +1195,11 @@ function buildAlpacaChart(values) {
   if (rows && rows.length) {
     // Build from real data
     strategies = rows.map(r => {
-      const name   = r.strategy || r.Strategy || r.name || r.Name || 'Unknown';
-      const ret    = parseFloat(r.annual_return || r.return_pct || r.Return || 0);
-      const sharpe = parseFloat(r.sharpe || r.Sharpe || 0);
-      const maxdd  = parseFloat(r.max_drawdown || r.MaxDD || r.maxdd || 0);
-      const turn   = parseFloat(r.turnover || r.Turnover || 0);
+      const name   = r.Strategy || r.strategy || r.name || r.Name || 'Unknown';
+      const ret    = parseFloat(r['Return%'] || r.annual_return || r.return_pct || r.Return || 0);
+      const sharpe = parseFloat(r.Sharpe || r.sharpe || 0);
+      const maxdd  = parseFloat(r['MaxDD%'] || r.max_drawdown || r.MaxDD || r.maxdd || 0);
+      const turn   = parseFloat(r['Turnover%'] || r.turnover || r.Turnover || 0);
       const meta   = strategyMeta[name] || { color: cSky, drift: 0.0003, vol: 0.009 };
       return { name, ret, sharpe, maxdd, turn, color: meta.color, drift: meta.drift, vol: meta.vol };
     });
@@ -1301,10 +1301,12 @@ function buildAlpacaChart(values) {
 
   if (rows && rows.length) {
     // k4_bl_weights.csv: columns ticker, weight (or similar)
-    const tickerCol = Object.keys(rows[0]).find(k => /tick|stock|sym/i.test(k)) || Object.keys(rows[0])[0];
-    const weightCol = Object.keys(rows[0]).find(k => /weight|wt|alloc/i.test(k)) || Object.keys(rows[0])[1];
+    // k4_bl_weights.csv: index is empty-string column, weight is 'weight'
+    const allKeys = Object.keys(rows[0]);
+    const tickerCol = allKeys[0]; // empty-string — the row index (ticker name)
+    const weightCol = allKeys.find(k => /weight|wt|alloc/i.test(k)) || allKeys[1];
     data = rows
-      .map((r, i) => ({ sym: r[tickerCol], w: parseFloat(r[weightCol] || 0), c: palette[i % palette.length] }))
+      .map((r, i) => ({ sym: r[tickerCol] || r[''] || Object.values(r)[0], w: parseFloat(r[weightCol] || 0), c: palette[i % palette.length] }))
       .filter(d => d.w > 0.001)
       .sort((a, b) => b.w - a.w);
   } else {
@@ -1378,9 +1380,9 @@ function buildAlpacaChart(values) {
   let signals = [];
 
   if (rows && rows.length) {
-    const tickerCol = Object.keys(rows[0]).find(k => /tick|stock|sym|nse/i.test(k)) || 'ticker';
-    const icCol     = Object.keys(rows[0]).find(k => /^ic$/i.test(k) || /information_coeff/i.test(k)) || 'ic';
-    const sigCol    = Object.keys(rows[0]).find(k => /signal|side|direction/i.test(k)) || 'signal';
+    const tickerCol = Object.keys(rows[0]).find(k => /^ticker$/i.test(k) || /tick|stock|sym|nse/i.test(k)) || 'ticker';
+    const icCol     = Object.keys(rows[0]).find(k => /^ic_test$/i.test(k) || /^ic$/i.test(k) || /information_coeff/i.test(k)) || 'ic_test';
+    const sigCol    = Object.keys(rows[0]).find(k => /^signal$/i.test(k) || /side|direction/i.test(k)) || 'signal';
     const zCol      = Object.keys(rows[0]).find(k => /z.?score|zscore|t.?stat/i.test(k));
 
     signals = rows
@@ -1388,7 +1390,7 @@ function buildAlpacaChart(values) {
         sym:  r[tickerCol] || '—',
         ic:   parseFloat(r[icCol] || 0),
         z:    zCol ? parseFloat(r[zCol] || 0) : parseFloat(r[icCol] || 0) / 0.03,
-        side: (r[sigCol] || '').toUpperCase().replace('_BIAS','').replace('LONG','LONG').replace('SHORT','SHORT') || 'NEUTRAL'
+        side: (r[sigCol] || '').toUpperCase().replace('_BIAS','').trim() || 'NEUTRAL'
       }))
       .filter(s => Math.abs(s.ic) >= 0.01)
       .sort((a, b) => Math.abs(b.ic) - Math.abs(a.ic));
@@ -1459,7 +1461,9 @@ function buildAlpacaChart(values) {
   let corr = [];
 
   if (rows && rows.length) {
-    tickers = Object.keys(rows[0]).filter(k => k !== '');
+    // dcc_correlation.csv has empty-string first column (row index = ticker name)
+    const allKeys = Object.keys(rows[0]);
+    tickers = allKeys.filter(k => k !== ''); // strip empty index column
     corr = rows.map(r => tickers.map(t => parseFloat(r[t] || 0)));
     // Short labels for display
     tickers = tickers.map(t => t.replace('HINDUNILVR','HNLVR').replace('BAJFINANCE','BAJFIN').replace('ICICIBANK','ICICI').replace('HDFCBANK','HDFC').replace('SUNPHARMA','SUNPH').replace('AXISBANK','AXIS').replace('RELIANCE','RELI'));
