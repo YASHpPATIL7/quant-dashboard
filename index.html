@@ -698,7 +698,43 @@
     .row1 { grid-template-columns: 1fr 1fr; }
     .row1 > :nth-child(3) { grid-column: span 2; }
     .row2 { grid-template-columns: 1fr; }
+    .row3 { grid-template-columns: 1fr 1fr; }
+    .row3 > :nth-child(3) { grid-column: span 2; }
   }
+
+  /* ── row3 + row4 deep analytics ─────────────────────── */
+  .row3 { display: grid; grid-template-columns: 4fr 4fr 4fr; gap: 8px; }
+  .frontier-frame { flex: 1; min-height: 220px; padding: 8px 10px; position: relative; }
+  .sharpe-table { width:100%; border-collapse:collapse; }
+  .sharpe-table td { padding:4px 8px; border-bottom:1px solid var(--line-faint); font-family:var(--font-num); font-size:var(--fs); }
+  .sharpe-table td:first-child { font-weight:700; letter-spacing:0.06em; color:var(--fg); }
+  .sharpe-table tr:nth-child(odd) { background:var(--bg-card-3); }
+  .sharpe-table tr:hover { background:var(--bg-hi); }
+  .sharpe-bar-wrap { display:flex; align-items:center; gap:8px; }
+  .sharpe-bar-bg { flex:1; height:9px; background:var(--bg-card-2); border:1px solid var(--line-faint); }
+  .sharpe-bar-fill { height:100%; }
+  .tilt-table { width:100%; border-collapse:collapse; }
+  .tilt-table th { text-align:right; font-family:var(--font-ui); font-size:var(--fs-xs); color:var(--fg-mute); letter-spacing:.14em; text-transform:uppercase; padding:5px 8px; border-bottom:1px solid var(--line); background:var(--bg-card-2); }
+  .tilt-table th:first-child { text-align:left; }
+  .tilt-table td { padding:4px 8px; text-align:right; border-bottom:1px solid var(--line-faint); font-family:var(--font-num); font-size:var(--fs); }
+  .tilt-table td:first-child { text-align:left; font-weight:700; letter-spacing:.06em; }
+  .tilt-table tr:nth-child(odd) { background:var(--bg-card-3); }
+  .tilt-table tr:hover { background:var(--bg-hi); }
+  .tilt-up { color: var(--up); }
+  .tilt-dn { color: var(--dn); }
+  .regime-bar { display:flex; height:20px; border:1px solid var(--line-faint); overflow:hidden; border-radius:1px; }
+  .regime-seg { height:100%; transition:opacity .12s; cursor:default; }
+  .regime-seg:hover { opacity:0.65; }
+  .regime-seg.bull { background:var(--up); }
+  .regime-seg.bear { background:var(--dn); }
+  .regime-seg.side { background:var(--gold); }
+  .regime-legend { display:flex; gap:14px; font-family:var(--font-ui); font-size:var(--fs-xs); color:var(--fg-mute); }
+  .rdot { display:inline-block; width:8px; height:8px; border-radius:1px; margin-right:4px; vertical-align:middle; }
+  .trade-log { width:100%; border-collapse:collapse; }
+  .trade-log th { text-align:left; font-family:var(--font-ui); font-size:var(--fs-xs); color:var(--fg-mute); letter-spacing:.14em; text-transform:uppercase; padding:5px 8px; border-bottom:1px solid var(--line); background:var(--bg-card-2); }
+  .trade-log td { padding:var(--pad-cell); border-bottom:1px solid var(--line-faint); font-family:var(--font-num); font-size:var(--fs-sm); }
+  .trade-log tr:nth-child(odd) { background:var(--bg-card-3); }
+  .trade-log tr:hover { background:var(--bg-hi); }
 </style>
 </head>
 <body>
@@ -927,6 +963,77 @@
             <span class="lbl-r">+1.00</span>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3 — Efficient Frontier · Alpha scores · BL Tilts -->
+  <div class="row3">
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[06]</span><span>Efficient Frontier</span><span class="sub">/ risk-return space</span></div>
+      </div>
+      <div class="card-bd">
+        <div class="frontier-frame"><canvas id="frontierChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[07]</span><span>Stock Alpha Scores</span><span class="sub">/ ann. sharpe per ticker</span></div>
+        <div style="font-family:var(--font-num);font-size:var(--fs-xs);color:var(--fg-mute)">SR · Ret% · Mkt Cap%</div>
+      </div>
+      <div class="card-bd" style="overflow:auto;max-height:320px;">
+        <table class="sharpe-table"><tbody id="sharpeTable"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[08]</span><span>BL Return Tilts</span><span class="sub">/ π_eq vs μ_BL</span></div>
+      </div>
+      <div class="card-bd" style="overflow:auto;max-height:320px;">
+        <table class="tilt-table" id="tiltTable">
+          <thead><tr><th>Ticker</th><th>Eq. Prior π</th><th>BL Return μ</th><th>Δ View Tilt</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4 — Regime Timeline + Trade Log | Full Backtest Table -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[09]</span><span>HMM Regime History + Trade Log</span><span class="sub">/ 2019–present</span></div>
+      </div>
+      <div class="card-bd" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+        <div class="regime-bar" id="regimeBar"></div>
+        <div class="regime-legend">
+          <span><span class="rdot" style="background:var(--up)"></span>Bull</span>
+          <span><span class="rdot" style="background:var(--dn)"></span>Bear</span>
+          <span><span class="rdot" style="background:var(--gold)"></span>Sideways</span>
+          <span id="regimeSummary" style="margin-left:auto;color:var(--fg-dim)"></span>
+        </div>
+        <div style="font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:600;letter-spacing:.14em;color:var(--fg-dim);text-transform:uppercase;border-top:1px solid var(--line);padding-top:8px;">Alpaca Trade Log · last 15 sessions</div>
+        <div style="overflow:auto;flex:1;max-height:200px;">
+          <table class="trade-log" id="tradeLog">
+            <thead><tr><th>Date</th><th>Status</th><th>Portfolio NAV</th><th>Unreal P&L</th><th>Alpha vs SPY</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[10]</span><span>Full Strategy Comparison</span><span class="sub">/ all backtest metrics</span></div>
+      </div>
+      <div class="card-bd" style="overflow:auto;">
+        <table class="ic-table" id="stratTable">
+          <thead><tr>
+            <th style="text-align:left">Strategy</th>
+            <th>Return%</th><th>Vol%</th><th>Sharpe</th><th>Max DD%</th><th>Calmar</th><th>Turnover%</th>
+          </tr></thead>
+          <tbody id="stratBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1658,6 +1765,148 @@ function buildAlpacaChart(values) {
   try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch(_) {}
 
   apply();
+})();
+
+/* ── PANELS 6-10 : Deep Analytics ─────────────────────────────────── */
+
+/* [06] Efficient Frontier scatter */
+(async () => {
+  const rows = await fetchCSV(GH_KUBER + 'k2_frontier.csv');
+  if (!rows || !rows.length) return;
+  const pts = rows.map(r => ({ x: parseFloat(r.vol||0)*100, y: parseFloat(r.ret||0)*100 }));
+  const strats = [
+    { label:'Equal Weight',   x:12.83, y:8.65,  color:cMute   },
+    { label:'MVO Max Sharpe', x:14.11, y:9.91,  color:cViolet },
+    { label:'MVO Min Vol',    x:11.91, y:8.12,  color:cPink   },
+    { label:'HRP',            x:12.29, y:9.35,  color:cGold   },
+    { label:'BL-Combined',   x:12.84, y:8.66,  color:cBlue   },
+  ];
+  const ctx = document.getElementById('frontierChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label:'Frontier', data:pts, borderColor:'rgba(14,165,233,0.45)',
+          backgroundColor:'rgba(14,165,233,0.04)', pointRadius:1.5,
+          showLine:true, tension:0.35, borderWidth:1.5, fill:false },
+        ...strats.map(s => ({
+          label:s.label, data:[{x:s.x,y:s.y}],
+          backgroundColor:s.color, borderColor:'#0a1224',
+          borderWidth:1.5, pointRadius:6, pointHoverRadius:9,
+        }))
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{ display:false },
+        tooltip:{
+          backgroundColor:'#0a1224', borderColor:cBlue, borderWidth:1, cornerRadius:2,
+          titleFont:{family:'JetBrains Mono',size:10}, bodyFont:{family:'JetBrains Mono',size:10},
+          callbacks:{ label: ctx => ctx.datasetIndex===0 ? null : ` ${ctx.dataset.label}  Vol ${ctx.parsed.x.toFixed(1)}%  Ret ${ctx.parsed.y.toFixed(1)}%` }
+        }
+      },
+      scales:{
+        x:{ title:{display:true,text:'Annual Volatility (%)',color:cMute,font:{family:'JetBrains Mono',size:9}}, grid:{color:cGrid}, ticks:{color:cMute,font:{family:'JetBrains Mono',size:9}}, border:{color:cGrid} },
+        y:{ title:{display:true,text:'Annual Return (%)',color:cMute,font:{family:'JetBrains Mono',size:9}}, grid:{color:cGrid}, ticks:{color:cMute,font:{family:'JetBrains Mono',size:9}}, border:{color:cGrid} }
+      }
+    }
+  });
+})();
+
+/* [07] Per-stock alpha scores */
+(async () => {
+  const rows = await fetchCSV(GH_KUBER + 'k1_summary.csv');
+  if (!rows || !rows.length) return;
+  const k = Object.keys(rows[0]);
+  const data = rows.map(r => ({
+    tk:r[k[0]], ret:parseFloat(r[k[1]]||0), vol:parseFloat(r[k[2]]||0),
+    sr:parseFloat(r[k[3]]||0), mc:parseFloat(r[k[4]]||0), dcc:parseFloat(r[k[5]]||0)
+  })).sort((a,b) => b.sr - a.sr);
+  const maxSr = Math.max(...data.map(d=>d.sr));
+  document.getElementById('sharpeTable').innerHTML = data.map(d => {
+    const pct = (d.sr/maxSr*100).toFixed(1);
+    const col = d.sr>0.5 ? cBlue : d.sr>0.35 ? cGold : d.sr>0.2 ? cSky : cMute;
+    return `<tr>
+      <td class="tk">${d.tk}</td>
+      <td><div class="sharpe-bar-wrap"><div class="sharpe-bar-bg"><div class="sharpe-bar-fill" style="width:${pct}%;background:${col}"></div></div><span style="color:${col};font-weight:600;min-width:38px;text-align:right">${d.sr.toFixed(3)}</span></div></td>
+      <td style="color:var(--fg-dim)">${d.ret.toFixed(1)}%</td>
+      <td style="color:var(--fg-mute)">${d.mc.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+})();
+
+/* [08] BL return tilts */
+(async () => {
+  const rows = await fetchCSV(GH_KUBER + 'k4_bl_returns.csv');
+  if (!rows || !rows.length) return;
+  const k = Object.keys(rows[0]);
+  const data = rows.map(r => ({
+    tk:r[k[0]], pi:parseFloat(r[k[1]]||0), mu:parseFloat(r[k[2]]||0), delta:parseFloat(r[k[3]]||0)
+  })).sort((a,b) => b.delta - a.delta);
+  document.querySelector('#tiltTable tbody').innerHTML = data.map(d => {
+    const up = d.delta >= 0;
+    return `<tr>
+      <td class="tk">${d.tk}</td>
+      <td style="color:var(--fg-dim)">${(d.pi*100).toFixed(2)}%</td>
+      <td style="color:var(--blue)">${(d.mu*100).toFixed(2)}%</td>
+      <td class="${up?'tilt-up':'tilt-dn'}">${up?'+':''}${(d.delta*100).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+})();
+
+/* [09] HMM Regime timeline */
+(async () => {
+  const rows = await fetchCSV(GH_ALPHA + 'regime_labels.csv');
+  if (!rows || !rows.length) return;
+  const n = rows.length;
+  const colMap = { bull:'bull', bear:'bear', sideways:'side' };
+  let bull=0, bear=0, side=0;
+  document.getElementById('regimeBar').innerHTML = rows.map(r => {
+    const cls = colMap[(r.regime_name||'').toLowerCase().trim()] || 'side';
+    if(cls==='bull')bull++; else if(cls==='bear')bear++; else side++;
+    return `<div class="regime-seg ${cls}" style="width:${(1/n*100).toFixed(3)}%" title="${r.Date}: ${r.regime_name}"></div>`;
+  }).join('');
+  const el = document.getElementById('regimeSummary');
+  if(el) el.textContent = `Bull ${(bull/n*100).toFixed(0)}%  Bear ${(bear/n*100).toFixed(0)}%  Sideways ${(side/n*100).toFixed(0)}%`;
+})();
+
+/* [09b] Alpaca trade log */
+(async () => {
+  const rows = await fetchCSV(GH_ALPACA);
+  if (!rows || !rows.length) return;
+  document.querySelector('#tradeLog tbody').innerHTML = rows.slice(-15).map(r => {
+    const nav   = parseFloat(r.Portfolio_Value||0);
+    const pnl   = parseFloat(r.Unrealized_PnL||0);
+    const alpha = parseFloat(r.Alpha_Pct||0);
+    return `<tr>
+      <td style="color:var(--fg-dim)">${r.Date||r.Day||'—'}</td>
+      <td style="color:var(--fg-mute);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.Status||''}">${r.Status||'—'}</td>
+      <td class="num">$${nav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="num ${pnl>=0?'tilt-up':'tilt-dn'}">${pnl>=0?'+':''}${pnl.toFixed(2)}</td>
+      <td class="num ${alpha>=0?'tilt-up':'tilt-dn'}">${alpha>=0?'+':''}${alpha.toFixed(3)}%</td>
+    </tr>`;
+  }).join('');
+})();
+
+/* [10] Full backtest comparison table */
+(async () => {
+  const rows = await fetchCSV(GH_KUBER + 'k7_backtest_results.csv');
+  if (!rows || !rows.length) return;
+  document.getElementById('stratBody').innerHTML = rows.map(r => {
+    const ret=parseFloat(r['Return%']||0), vol=parseFloat(r['Vol%']||0),
+          sr=parseFloat(r.Sharpe||0),      dd=parseFloat(r['MaxDD%']||0),
+          cal=parseFloat(r.Calmar||0),     turn=parseFloat(r['Turnover%']||0);
+    return `<tr>
+      <td><span class="tk">${r.Strategy}</span></td>
+      <td class="${ret>=9?'tilt-up':'tilt-dn'}">${ret>0?'+':''}${ret.toFixed(2)}%</td>
+      <td style="color:var(--fg-dim)">${vol.toFixed(2)}%</td>
+      <td class="${sr>=0.2?'ic':'ic lo'}">${sr.toFixed(3)}</td>
+      <td class="tilt-dn">${dd.toFixed(2)}%</td>
+      <td style="color:var(--gold)">${cal.toFixed(3)}</td>
+      <td style="color:var(--fg-mute)">${turn.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
 })();
 
 </script>
