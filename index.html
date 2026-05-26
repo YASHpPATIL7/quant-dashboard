@@ -483,6 +483,7 @@
   }
   .ic-table .b.long  { color: var(--up); border-color: rgba(16, 185, 129, 0.40); background: rgba(16, 185, 129, 0.08); }
   .ic-table .b.short { color: var(--dn); border-color: rgba(239, 68, 68, 0.40);  background: rgba(239, 68, 68, 0.08); }
+  .ic-table .b.neutral { color: var(--fg-mute); border-color: rgba(100,120,150,0.40); background: rgba(100,120,150,0.08); }
 
   /* ── gatishakti sector bars ────────────────────────── */
   .sector-list { display: flex; flex-direction: column; }
@@ -995,7 +996,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "normal"
 }/*EDITMODE-END*/;
 
-/* GitHub raw base URLs */
+/* GitHub raw base URLs — ?v= busts CDN cache */
+const _v = Date.now();
 const GH_KUBER  = "https://raw.githubusercontent.com/YASHpPATIL7/ml-portfolio-optimizer/main/data/";
 const GH_ALPHA  = "https://raw.githubusercontent.com/YASHpPATIL7/alpha-core/main/data/";
 const GH_ALPACA = "https://raw.githubusercontent.com/YASHpPATIL7/live-trading-alpha/main/alpaca_journal.csv";
@@ -1014,7 +1016,8 @@ function parseCSV(text) {
 
 async function fetchCSV(url) {
   try {
-    const r = await fetch(url);
+    const sep = url.includes('?') ? '&' : '?';
+    const r = await fetch(url + sep + '_cb=' + _v);
     if (!r.ok) throw new Error(r.status);
     return parseCSV(await r.text());
   } catch(e) {
@@ -1131,9 +1134,15 @@ Chart.defaults.elements.line.borderWidth = 1.5;
     const cells = document.querySelectorAll('.pos-card .gp-cell');
     if (cells[0]) cells[0].querySelector('.gp-v').textContent = qty;
     if (cells[3]) cells[3].querySelector('.gp-v').textContent = '$' + notional.toLocaleString();
+    if (cells[4]) {
+      cells[4].querySelector('.gp-k').textContent = 'IC';
+      cells[4].querySelector('.gp-v').textContent = ic.toFixed(3);
+    }
     if (cells[5]) {
-      const icEl = cells[5].querySelector('.gp-v');
-      icEl.textContent = 'IC ' + ic.toFixed(3);
+      cells[5].querySelector('.gp-k').textContent = 'Signal';
+      const sideClass = side === 'LONG' ? 'up' : 'dn';
+      cells[5].querySelector('.gp-v').classList.add(sideClass);
+      cells[5].querySelector('.gp-v').textContent = side;
     }
   }
 
@@ -1418,12 +1427,13 @@ function buildAlpacaChart(values) {
     const zHi  = Math.abs(s.z) >= 2 ? ' hi' : '';
     const sign = s.ic >= 0 ? '+' : '−';
     const zsign = s.z >= 0 ? '+' : '−';
-    const sideClass = s.side === 'LONG' ? 'long' : s.side === 'SHORT' ? 'short' : '';
+    const sideClass = s.side === 'LONG' ? 'long' : s.side === 'SHORT' ? 'short' : 'neutral';
+    const sideLabel = s.side || 'NEUTRAL';
     return `<tr>
       <td><span class="sym">${s.sym}</span></td>
       <td class="ic${lo}${neg}">${sign}${Math.abs(s.ic).toFixed(3)}</td>
       <td class="z${zHi}">${zsign}${Math.abs(s.z).toFixed(2)}σ</td>
-      <td><span class="b ${sideClass}">${s.side}</span></td>
+      <td><span class="b ${sideClass}">${sideLabel}</span></td>
     </tr>`;
   }).join('');
 })();
