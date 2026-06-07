@@ -849,6 +849,93 @@
   .trade-log td { padding:var(--pad-cell); border-bottom:1px solid var(--line-faint); font-family:var(--font-num); font-size:var(--fs-sm); }
   .trade-log tr:nth-child(odd) { background:var(--bg-card-3); }
   .trade-log tr:hover { background:var(--bg-hi); }
+
+  /* ═══════════════════ BEAUTIFY PASS — v2 polish ═══════════════════ */
+  :root { --line-2: #2a4a72; }
+
+  body {
+    background:
+      radial-gradient(1100px 640px at 6% -10%, rgba(14,165,233,0.055), transparent 60%),
+      radial-gradient(900px 560px at 99% 2%, rgba(139,92,246,0.045), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+
+  .app { gap: 7px; max-width: 1780px; }
+
+  /* card polish — hover lift + animated header underline */
+  .card { transition: border-color .18s ease, box-shadow .2s ease; }
+  .card:hover { border-color: var(--line-2); box-shadow: 0 8px 26px rgba(0,0,0,.34); }
+  .card-hd { position: relative; }
+  .card-hd::after {
+    content:''; position:absolute; left:0; right:0; bottom:-1px; height:1px;
+    background:var(--blue); transform:scaleX(0); transform-origin:left;
+    transition:transform .35s ease; opacity:.55;
+  }
+  .card:hover .card-hd::after { transform:scaleX(1); }
+
+  /* numbered header chip */
+  .card-hd .title .num {
+    border:1px solid rgba(14,165,233,.28);
+    background:var(--blue-soft);
+    padding:0 5px; border-radius:2px; font-size:9px; letter-spacing:.04em;
+  }
+
+  /* brand glyph — gradient + glow */
+  .brand .glyph {
+    background: linear-gradient(135deg, var(--blue), var(--violet));
+    box-shadow: 0 0 18px rgba(14,165,233,.4), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  /* topbar → graceful flex-wrap so it never crams on narrow viewports */
+  .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
+  .topbar .brand { flex:0 0 auto; }
+  .topbar .badges { flex:1 1 320px; justify-content:flex-start; }
+  .topbar .pill, .topbar .cvar { flex:0 0 auto; }
+  .badge { transition: border-color .15s ease, background .15s ease; white-space:nowrap; }
+  .badge:hover { border-color: var(--line-2); background: var(--bg-hi); }
+
+  /* zone section bands — organise the 16 panels */
+  .zone { display:flex; align-items:center; gap:11px; padding:5px 3px 1px; }
+  .zone .zn {
+    font-family:var(--font-num); font-weight:700; font-size:10px;
+    color:var(--bg); background:var(--blue); padding:1px 7px; border-radius:2px;
+    letter-spacing:.06em; box-shadow:0 0 12px rgba(14,165,233,.3);
+  }
+  .zone .zt {
+    font-family:var(--font-ui); font-weight:700; font-size:10.5px;
+    letter-spacing:.2em; text-transform:uppercase; color:var(--fg);
+    white-space:nowrap;
+  }
+  .zone .zline { flex:1; height:1px; background:linear-gradient(90deg,var(--line-2),transparent); }
+  .zone .zr {
+    font-family:var(--font-num); font-size:9px; color:var(--fg-mute);
+    letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;
+  }
+
+  /* unified slim scrollbars */
+  *::-webkit-scrollbar { width:7px; height:7px; }
+  *::-webkit-scrollbar-thumb { background:var(--line); }
+  *::-webkit-scrollbar-thumb:hover { background:var(--line-2); }
+  *::-webkit-scrollbar-track { background:transparent; }
+  * { scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+
+  /* news feed rows — left accent on hover */
+  #newsFeed > div { position:relative; transition:background .12s ease; }
+  #newsFeed > div::before {
+    content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
+    background:var(--blue); opacity:0; transition:opacity .15s ease;
+  }
+  #newsFeed > div:hover::before { opacity:.7; }
+
+  .footer { border-radius:2px; }
+
+  /* keep stat labels on one line */
+  .cvar .k { white-space:nowrap; }
+  .cvar .v { white-space:nowrap; }
+
+  @media (max-width: 1280px) {
+    .zone .zr { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -896,9 +983,12 @@
 
     <div class="cvar" style="border-left:1px solid var(--line);padding-left:16px;margin-left:4px">
       <span class="k">DATA AS OF</span>
-      <span class="v" style="font-size:13px" id="dataAsOf">loading…</span>
+      <span class="v" style="font-size:13px;color:var(--fg-dim)" id="dataAsOf">loading…</span>
     </div>
   </div>
+
+  <!-- ZONE 01 -->
+  <div class="zone"><span class="zn">01</span><span class="zt">Execution &amp; Allocation</span><span class="zline"></span><span class="zr">Alpaca Live · Backtest Curves · Black-Litterman</span></div>
 
   <!-- ROW 1 -->
   <div class="row1">
@@ -1061,6 +1151,9 @@
     </div>
   </div>
 
+  <!-- ZONE 02 -->
+  <div class="zone"><span class="zn">02</span><span class="zt">Macro · Sentiment · Correlation</span><span class="zline"></span><span class="zr">GatiShakti Tilts · FinBERT NLP · DCC Matrix</span></div>
+
   <!-- ROW 2 -->
   <div class="row2">
 
@@ -1131,13 +1224,17 @@
             <div class="ramp"></div>
             <span class="lbl-r">+1.00</span>
           </div>
-          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-faint);padding:4px 2px;letter-spacing:.05em;line-height:1.5">
-            ℹ️ All 14 NSE large-caps show positive pairwise correlation — expected for stocks in the same index. Blue intensity = correlation strength.
+          <div style="display:flex;gap:8px;align-items:flex-start;font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-dim);padding:6px 2px 2px;letter-spacing:.02em;line-height:1.55">
+            <span style="font-family:var(--font-num);font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--blue);border:1px solid rgba(14,165,233,.35);background:var(--blue-soft);padding:1px 6px;border-radius:2px;flex-shrink:0;text-transform:uppercase">Note</span>
+            <span>All 14 NSE large-caps show positive pairwise correlation — expected for constituents of the same index. Blue intensity scales with correlation strength.</span>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- ZONE 03 -->
+  <div class="zone"><span class="zn">03</span><span class="zt">Optimization &amp; Factors</span><span class="zline"></span><span class="zr">Efficient Frontier · Alpha Scores · BL Return Tilts</span></div>
 
   <!-- ROW 3 — Efficient Frontier · Alpha scores · BL Tilts -->
   <div class="row3">
@@ -1171,6 +1268,9 @@
     </div>
   </div>
 
+  <!-- ZONE 04 -->
+  <div class="zone"><span class="zn">04</span><span class="zt">Volatility &amp; Live Alpha</span><span class="zline"></span><span class="zr">GARCH-DCC Vol · Alpha vs SPY Decay</span></div>
+
   <!-- ROW 4b — GARCH Volatility Strip | Alpha vs SPY Decay -->
   <div class="row4b">
     <div class="card">
@@ -1192,6 +1292,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ZONE 05 -->
+  <div class="zone"><span class="zn">05</span><span class="zt">Regime &amp; Backtest</span><span class="zline"></span><span class="zr">HMM History · Trade Log · Strategy Comparison</span></div>
 
   <!-- ROW 5 — Regime Timeline + Trade Log | Full Backtest Table -->
   <div class="row2">
@@ -1231,6 +1334,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ZONE 06 -->
+  <div class="zone"><span class="zn">06</span><span class="zt">Performance &amp; Today's Signal</span><span class="zline"></span><span class="zr">Report Card · Rolling Sharpe · Kelly Positions</span></div>
 
   <!-- ROW 6 — Portfolio Report Card | Morning Signal -->
   <div class="row2">
@@ -1281,6 +1387,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ZONE 07 -->
+  <div class="zone"><span class="zn">07</span><span class="zt">Stat-Arb &amp; Live Market</span><span class="zline"></span><span class="zr">Cointegration Pairs · Nifty50 · SPY · USD/INR</span></div>
 
   <!-- ROW 7 — Cointegration Pairs | Live Nifty -->
   <div class="row2">
@@ -1385,6 +1494,9 @@ const _v = Date.now();
 const GH_KUBER  = "https://raw.githubusercontent.com/YASHpPATIL7/ml-portfolio-optimizer/main/data/";
 const GH_ALPHA  = "https://raw.githubusercontent.com/YASHpPATIL7/alpha-core/main/data/";
 const GH_ALPACA = "https://raw.githubusercontent.com/YASHpPATIL7/live-trading-alpha/main/alpaca_journal.csv";
+
+/* ── HTML-escape free-text from CSVs (prevents broken attributes/tooltips) ── */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 /* ── CSV parser — skips truncated/malformed rows ─────────────────── */
 function parseCSV(text) {
@@ -1771,9 +1883,9 @@ window._alpacaAllRows = null;
       const arrow = sent==='positive' ? '▲' : sent==='negative' ? '▼' : '●';
       const headline = a.text_preview.replace(/"/g,'').slice(0, 72) + (a.text_preview.length > 72 ? '…' : '');
       return `<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line-faint);background:var(--bg-card-2)" onmouseover="this.style.background='var(--bg-hi)'" onmouseout="this.style.background='var(--bg-card-2)'">
-        <span class="fb-badge ${bdgClass}" style="margin-top:1px;flex-shrink:0">${a.ticker}</span>
+        <span class="fb-badge ${bdgClass}" style="margin-top:1px;flex-shrink:0">${esc(a.ticker)}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-dim);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.text_preview}">${headline}</div>
+          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-dim);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(a.text_preview)}">${esc(headline)}</div>
           <div style="font-family:var(--font-num);font-size:9px;color:var(--fg-faint);margin-top:1px">${a.date}</div>
         </div>
         <span style="font-family:var(--font-num);font-size:var(--fs-xs);font-weight:700;color:${scColor};flex-shrink:0">${arrow} ${sc >= 0 ? '+' : ''}${sc.toFixed(3)}</span>
@@ -2011,6 +2123,7 @@ function buildAlpacaChart(values) {
               text: `${(chart.data.labels[i]||'').padEnd(10,' ')} ${(w*100).toFixed(1)}%`,
               fillStyle: chart.data.datasets[0].backgroundColor[i],
               strokeStyle: chart.data.datasets[0].backgroundColor[i],
+              fontColor: cDim,
               lineWidth: 0, index: i, hidden: false,
             }))
           }
@@ -2580,7 +2693,7 @@ function buildAlpacaChart(values) {
     document.getElementById('regimeBar').innerHTML = rows.map(r => {
       const cls = colMap[(r.regime_name||'').toLowerCase().trim()] || 'side';
       if(cls==='bull')bull++; else if(cls==='bear')bear++; else side++;
-      return `<div class="regime-seg ${cls}" style="width:${(1/n*100).toFixed(3)}%" title="${r.Date||''}: ${r.regime_name||''}"></div>`;
+      return `<div class="regime-seg ${cls}" style="width:${(1/n*100).toFixed(3)}%" title="${esc(r.Date||'')}: ${esc(r.regime_name||'')}"></div>`;
     }).join('');
   } else {
     // Render approximate bar from known distribution
@@ -2604,7 +2717,7 @@ function buildAlpacaChart(values) {
     const alpha = parseFloat(r.Alpha_Pct||0);
     return `<tr>
       <td style="color:var(--fg-dim)">${r.Date||r.Day||'—'}</td>
-      <td style="color:var(--fg-mute);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.Status||''}">${r.Status||'—'}</td>
+      <td style="color:var(--fg-mute);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.Status||'')}">${esc(r.Status||'—')}</td>
       <td class="num">$${nav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td class="num ${pnl>=0?'tilt-up':'tilt-dn'}">${pnl>=0?'+':''}${pnl.toFixed(2)}</td>
       <td class="num ${alpha>=0?'tilt-up':'tilt-dn'}">${alpha>=0?'+':''}${alpha.toFixed(3)}%</td>
@@ -2721,15 +2834,15 @@ function showMorning(tab) {
     new Chart(rsCan.getContext('2d'),{
       type:'line',
       data:{ labels:xs, datasets:[{
-        label:'60d Sharpe', data:ys, borderColor:'var(--blue)', backgroundColor:'rgba(14,165,233,0.06)',
-        fill:true, tension:0.3, pointRadius:0, borderWidth:1.5,
+        label:'60d Sharpe', data:ys, borderColor:cBlue, backgroundColor:'rgba(14,165,233,0.10)',
+        fill:true, tension:0.3, pointRadius:0, borderWidth:2,
       },{
         label:'Zero line', data:ys.map(()=>0), borderColor:'rgba(255,255,255,0.15)', borderDash:[4,4], borderWidth:1, pointRadius:0,
       }]},
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{enabled:false} },
-        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'}},
-                 y:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v.toFixed(1)}, grid:{color:'rgba(255,255,255,0.06)'}} }}
+        scales:{ x:{ticks:{color:cMute,font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'}},
+                 y:{ticks:{color:cMute,font:{size:9},callback:v=>v.toFixed(1)}, grid:{color:'rgba(255,255,255,0.06)'}} }}
     });
   }
 })();
@@ -2745,14 +2858,14 @@ function showMorning(tab) {
   if (kfRows && kfRows.length && kCan) {
     const labels = kfRows.map(r=>r.ticker||r.Ticker||'');
     const vals   = kfRows.map(r=>parseFloat(r.gated_pos_pct||r.pos_pct||0)*100);
-    const colors = kfRows.map(r=>{ const a=(r.action||'').toUpperCase(); return a==='BUY'?'rgba(16,185,129,0.7)':a==='SELL'?'rgba(239,68,68,0.7)':'rgba(100,116,139,0.4)'; });
+    const colors = kfRows.map(r=>{ const a=(r.action||'').toUpperCase(); return a==='BUY'?'rgba(16,185,129,0.85)':a==='SELL'?'rgba(239,68,68,0.85)':'rgba(120,140,170,0.55)'; });
     new Chart(kCan.getContext('2d'),{
       type:'bar',
       data:{ labels, datasets:[{ label:'Position %', data:vals, backgroundColor:colors, borderRadius:2 }]},
       options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`${ctx.parsed.x.toFixed(1)}%` }}},
-        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,0.04)'}},
-                 y:{ticks:{color:'var(--fg)',font:{size:9,weight:'600'}}, grid:{display:false}} }}
+        scales:{ x:{ticks:{color:cMute,font:{size:9},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,0.04)'}},
+                 y:{ticks:{color:cFg,font:{size:9,weight:'600'}}, grid:{display:false}} }}
     });
   }
 
@@ -2764,14 +2877,14 @@ function showMorning(tab) {
       const aCol=action==='BUY'?'var(--up)':action==='SELL'?'var(--dn)':'var(--fg-mute)';
       const fv=parseFloat(r.effective_f||r.full_kelly||0).toFixed(4);
       const pv=parseFloat(r.gated_pos_pct||r.pos_pct||0);
-      const note=(r.note||'').slice(0,28);
+      const note=esc((r.note||'').slice(0,28));
       return `<tr>
-        <td><span class="tk">${r.ticker||''}</span></td>
+        <td><span class="tk">${esc(r.ticker||'')}</span></td>
         <td style="color:${aCol};font-weight:700;font-size:10px">${action||'—'}</td>
         <td style="color:var(--fg-dim)">${fv}</td>
         <td style="color:${pv>0?'var(--up)':'var(--fg-mute)'};font-weight:600">${(pv*100).toFixed(1)}%</td>
-        <td style="color:var(--gold)">${r.regime||'—'}</td>
-        <td style="color:var(--fg-mute);font-size:9px" title="${r.note||''}">${note}${note.length===28?'…':''}</td>
+        <td style="color:var(--gold)">${esc(r.regime||'—')}</td>
+        <td style="color:var(--fg-mute);font-size:9px" title="${esc(r.note||'')}">${note}${note.length===28?'…':''}</td>
       </tr>`;
     }).join('');
   }
@@ -2852,29 +2965,26 @@ function showMorning(tab) {
     return null;
   }
 
-
-  // Render market strip with current prices (5d range ensures data even on weekends)
+  // Render market strip — 5d/1d range so weekends still show last close
   const prices = await Promise.all(SYMBOLS.map(s => fetchYahoo(s.sym, '5d', '1d')));
   if (strip) {
     strip.innerHTML = SYMBOLS.map((s,i) => {
       const result = prices[i]?.chart?.result?.[0];
       const meta   = result?.meta;
       const closes = result?.indicators?.quote?.[0]?.close?.filter(v=>v!=null) || [];
-      // Use last close in array as price — works for both live and weekend/closed market
       const price  = meta?.regularMarketPrice || (closes.length ? closes[closes.length-1] : null);
       const prev   = meta?.previousClose || meta?.chartPreviousClose || (closes.length > 1 ? closes[closes.length-2] : null);
       const chg    = price && prev ? ((price-prev)/prev*100) : null;
       const col    = chg !== null ? (chg>=0?'var(--up)':'var(--dn)') : 'var(--fg-dim)';
-      const isWeekend = [0,6].includes(new Date().getDay());
-      const closedNote = isWeekend ? ' <span style="font-size:8px;opacity:.5">Fri close</span>' : '';
+      const isWknd = [0,6].includes(new Date().getDay());
+      const tag    = isWknd ? ' <span style="font-size:8px;opacity:.45">Fri close</span>' : '';
       return `<div style="padding:8px 10px;border-right:1px solid var(--line)">
         <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.1em;text-transform:uppercase">${s.label}</div>
-        <div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:var(--fg);margin-top:1px">${price?price.toFixed(s.decimals):'—'}${closedNote}</div>
+        <div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:var(--fg);margin-top:1px">${price?price.toFixed(s.decimals):'—'}${tag}</div>
         <div style="font-family:var(--font-num);font-size:var(--fs-xs);color:${col};margin-top:1px">${chg!==null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'—'}</div>
       </div>`;
     }).join('');
   }
-
 
   // Nifty 5d chart
   const niftyData = await fetchYahoo('^NSEI', '5d', '1h');
@@ -2898,8 +3008,8 @@ function showMorning(tab) {
       }]},
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`₹${ctx.parsed.y.toFixed(0)}` }}},
-        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:8},maxTicksLimit:8}, grid:{display:false}},
-                 y:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v.toFixed(0)}, grid:{color:'rgba(255,255,255,0.05)'}} }}
+        scales:{ x:{ticks:{color:cMute,font:{size:8},maxTicksLimit:8}, grid:{display:false}},
+                 y:{ticks:{color:cMute,font:{size:9},callback:v=>v.toFixed(0)}, grid:{color:'rgba(255,255,255,0.05)'}} }}
     });
   }
 })();
