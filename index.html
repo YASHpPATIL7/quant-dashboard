@@ -1232,6 +1232,88 @@
     </div>
   </div>
 
+  <!-- ROW 6 — Portfolio Report Card | Morning Signal -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[13]</span><span>Portfolio Report Card</span><span class="sub">/ risk-adjusted metrics · since Mar 9</span></div>
+      </div>
+      <div class="card-bd" style="padding:0">
+        <!-- Stat grid top -->
+        <div id="reportCard" style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)"></div>
+        <!-- Rolling Sharpe chart -->
+        <div style="padding:6px 10px 4px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px">Rolling 60d Sharpe · Strategy vs SPY benchmark</div>
+          <div style="position:relative;height:110px"><canvas id="rollingSharpChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[14]</span><span>Morning Signal</span><span class="sub">/ today's alpha report · kelly positions</span></div>
+        <div class="tabs" style="margin-left:auto">
+          <button class="on" onclick="showMorning('kelly')">Kelly</button>
+          <button onclick="showMorning('pairs')">Pairs</button>
+        </div>
+      </div>
+      <div class="card-bd" style="padding:0;overflow:auto">
+        <div id="morningKelly" style="display:block">
+          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.12em;text-transform:uppercase;padding:6px 12px 4px;border-bottom:1px solid var(--line)">Capital Allocation · Today · Kelly-gated positions</div>
+          <!-- Kelly bar chart -->
+          <div style="padding:8px 12px;height:130px;position:relative"><canvas id="kellyChart"></canvas></div>
+          <!-- Kelly table -->
+          <div style="overflow:auto;max-height:160px">
+            <table class="ic-table" id="kellyTable">
+              <thead><tr><th>Ticker</th><th>Action</th><th>Kelly f</th><th>Pos %</th><th>Regime</th><th>Note</th></tr></thead>
+              <tbody id="kellyBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="morningPairs" style="display:none">
+          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.12em;text-transform:uppercase;padding:6px 12px 4px;border-bottom:1px solid var(--line)">Pairs Kelly Allocation · cointegrated spreads</div>
+          <div style="overflow:auto;max-height:295px">
+            <table class="ic-table" id="pairsKellyTable">
+              <thead><tr><th>Pair</th><th>Signal</th><th>Kelly f</th><th>Pos %</th><th>Half-Life</th></tr></thead>
+              <tbody id="pairsKellyBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 7 — Cointegration Pairs | Live Nifty -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[15]</span><span>Cointegration Pairs</span><span class="sub">/ stat arb · Engle-Granger · tradeable spreads</span></div>
+      </div>
+      <div class="card-bd" style="padding:0;overflow:auto">
+        <table class="ic-table" id="cointTable">
+          <thead><tr>
+            <th>Pair</th><th>r rank</th><th>Trace stat</th><th>Beta</th><th>Half-life</th><th>Spread σ</th><th>Status</th>
+          </tr></thead>
+          <tbody id="cointBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="title"><span class="num">[16]</span><span>Live Market</span><span class="sub">/ Nifty50 · SPY · USD/INR</span></div>
+        <span id="niftyTime" style="font-family:var(--font-num);font-size:var(--fs-xs);color:var(--fg-mute);margin-left:auto"></span>
+      </div>
+      <div class="card-bd" style="padding:0">
+        <!-- Ticker strip -->
+        <div id="marketStrip" style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)"></div>
+        <!-- Nifty chart -->
+        <div style="padding:6px 10px 4px">
+          <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px">Nifty50 · 5-day · from Yahoo Finance</div>
+          <div style="position:relative;height:140px"><canvas id="niftyChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
     <div class="kb">
       <span class="lbl-k">Shortcuts</span>
@@ -2556,6 +2638,253 @@ function buildAlpacaChart(values) {
       <td style="color:var(--fg-mute)">${turn.toFixed(1)}%</td>
     </tr>`;
   }).join('');
+})();
+
+/* ── showMorning tab switcher ── */
+function showMorning(tab) {
+  document.getElementById('morningKelly').style.display = tab==='kelly' ? 'block' : 'none';
+  document.getElementById('morningPairs').style.display = tab==='pairs'  ? 'block' : 'none';
+  document.querySelectorAll('[onclick^="showMorning"]').forEach(b => b.classList.remove('on'));
+  document.querySelector(`[onclick="showMorning('${tab}')"]`).classList.add('on');
+}
+
+/* ── 13. Portfolio Report Card + Rolling Sharpe ── */
+(async () => {
+  const journal = await fetchCSV(GH_ALPACA);
+  const retRows = await fetchCSV(GH_ALPHA + 'vajra_returns.csv');
+  const rc = document.getElementById('reportCard');
+
+  // From journal: compute strategy daily returns, max DD, Sharpe, Sortino, Calmar
+  let sharpe=0, calmar=0, sortino=0, maxdd=0, totalRet=0, betaVal='—';
+  if (journal && journal.length > 5) {
+    const navs = journal.map(r => parseFloat(r.Portfolio_Value||r.NAV||r.portfolio_value||0)).filter(v=>v>0);
+    if (navs.length > 1) {
+      const drets = navs.slice(1).map((v,i)=>(v-navs[i])/navs[i]);
+      const n = drets.length;
+      const mean = drets.reduce((a,b)=>a+b,0)/n;
+      const std  = Math.sqrt(drets.map(r=>(r-mean)**2).reduce((a,b)=>a+b,0)/n);
+      const downside = Math.sqrt(drets.filter(r=>r<0).map(r=>r**2).reduce((a,b)=>a+b,0)/n);
+      sharpe  = std > 0 ? (mean/std * Math.sqrt(252)).toFixed(3) : '—';
+      sortino = downside > 0 ? (mean/downside * Math.sqrt(252)).toFixed(3) : '—';
+      totalRet = ((navs[navs.length-1]-navs[0])/navs[0]*100);
+      // Max Drawdown
+      let peak=navs[0], mdd=0;
+      navs.forEach(v=>{peak=Math.max(peak,v); mdd=Math.min(mdd,(v-peak)/peak);});
+      maxdd = (mdd*100).toFixed(2);
+      calmar = mdd !== 0 ? (totalRet / Math.abs(mdd*100)).toFixed(3) : '—';
+    }
+    // Beta vs SPY from journal
+    const spyRets = journal.map(r=>parseFloat(r.Benchmark_Return_Pct||r.SPY_Return||0)/100).filter((v,i,a)=>!isNaN(v)&&i>0&&a[i-1]!==0);
+    const strRets2 = journal.slice(1).map((r,i)=>{
+      const prev=parseFloat(journal[i].Portfolio_Value||0); const curr=parseFloat(r.Portfolio_Value||0);
+      return prev>0?((curr-prev)/prev):0;
+    });
+    if (spyRets.length > 5 && strRets2.length >= spyRets.length) {
+      const n2=spyRets.length; const mS=spyRets.reduce((a,b)=>a+b,0)/n2; const mP=strRets2.slice(0,n2).reduce((a,b)=>a+b,0)/n2;
+      const cov=spyRets.map((r,i)=>(r-mS)*(strRets2[i]-mP)).reduce((a,b)=>a+b,0)/n2;
+      const varSpy=spyRets.map(r=>(r-mS)**2).reduce((a,b)=>a+b,0)/n2;
+      betaVal = varSpy>0?(cov/varSpy).toFixed(3):'—';
+    }
+  }
+  const stats = [
+    { k:'Sharpe (ann.)',  v: sharpe,  col: parseFloat(sharpe)>0?'var(--up)':'var(--dn)' },
+    { k:'Sortino',        v: sortino, col: parseFloat(sortino)>0?'var(--up)':'var(--dn)' },
+    { k:'Calmar',         v: calmar,  col: parseFloat(calmar)>0.3?'var(--up)':'var(--gold)' },
+    { k:'Max Drawdown',   v: maxdd+'%', col: parseFloat(maxdd)<-5?'var(--dn)':'var(--gold)' },
+    { k:'Total Return',   v: totalRet.toFixed(2)+'%', col: totalRet>=0?'var(--up)':'var(--dn)' },
+    { k:'Beta vs SPY',    v: betaVal, col:'var(--blue)' },
+  ];
+  if(rc) rc.innerHTML = stats.map(s=>`
+    <div style="padding:8px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)">
+      <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.1em;text-transform:uppercase">${s.k}</div>
+      <div style="font-family:var(--font-num);font-size:18px;font-weight:700;color:${s.col};margin-top:2px">${s.v}</div>
+    </div>`).join('');
+
+  // Rolling 60d Sharpe from vajra_returns
+  const rsCan = document.getElementById('rollingSharpChart');
+  if (retRows && retRows.length > 65 && rsCan) {
+    const tickers = Object.keys(retRows[0]).filter(k=>k!=='Date');
+    const portRets = retRows.map(r=>{ const vs=tickers.map(t=>parseFloat(r[t]||0)).filter(v=>!isNaN(v)); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0; });
+    const dates = retRows.map(r=>r.Date||'');
+    const WINDOW=60; const rollingS=[], rollingDates=[];
+    for(let i=WINDOW;i<portRets.length;i++){
+      const slice=portRets.slice(i-WINDOW,i);
+      const m=slice.reduce((a,b)=>a+b,0)/WINDOW;
+      const sd=Math.sqrt(slice.map(r=>(r-m)**2).reduce((a,b)=>a+b,0)/WINDOW);
+      rollingS.push(sd>0?(m/sd*Math.sqrt(252)):0);
+      rollingDates.push(dates[i]);
+    }
+    // Subsample to ~80 points
+    const step=Math.max(1,Math.floor(rollingS.length/80));
+    const xs=rollingDates.filter((_,i)=>i%step===0).map(d=>{ try{return new Date(d).toLocaleDateString('en-US',{month:'short',year:'2-digit'});}catch{return d;} });
+    const ys=rollingS.filter((_,i)=>i%step===0);
+    new Chart(rsCan.getContext('2d'),{
+      type:'line',
+      data:{ labels:xs, datasets:[{
+        label:'60d Sharpe', data:ys, borderColor:'var(--blue)', backgroundColor:'rgba(14,165,233,0.06)',
+        fill:true, tension:0.3, pointRadius:0, borderWidth:1.5,
+      },{
+        label:'Zero line', data:ys.map(()=>0), borderColor:'rgba(255,255,255,0.15)', borderDash:[4,4], borderWidth:1, pointRadius:0,
+      }]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'}},
+                 y:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v.toFixed(1)}, grid:{color:'rgba(255,255,255,0.06)'}} }}
+    });
+  }
+})();
+
+/* ── 14. Morning Signal — Kelly positions + Pairs ── */
+(async () => {
+  const GH_KF  = GH_ALPHA + 'kelly_positions_factor_gated.csv';
+  const GH_KP  = GH_ALPHA + 'kelly_positions_pairs_gated.csv';
+  const [kfRows, kpRows] = await Promise.all([fetchCSV(GH_KF), fetchCSV(GH_KP)]);
+
+  // Kelly bar chart
+  const kCan = document.getElementById('kellyChart');
+  if (kfRows && kfRows.length && kCan) {
+    const labels = kfRows.map(r=>r.ticker||r.Ticker||'');
+    const vals   = kfRows.map(r=>parseFloat(r.gated_pos_pct||r.pos_pct||0)*100);
+    const colors = kfRows.map(r=>{ const a=(r.action||'').toUpperCase(); return a==='BUY'?'rgba(16,185,129,0.7)':a==='SELL'?'rgba(239,68,68,0.7)':'rgba(100,116,139,0.4)'; });
+    new Chart(kCan.getContext('2d'),{
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Position %', data:vals, backgroundColor:colors, borderRadius:2 }]},
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`${ctx.parsed.x.toFixed(1)}%` }}},
+        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,0.04)'}},
+                 y:{ticks:{color:'var(--fg)',font:{size:9,weight:'600'}}, grid:{display:false}} }}
+    });
+  }
+
+  // Kelly table
+  const kb = document.getElementById('kellyBody');
+  if (kfRows && kb) {
+    kb.innerHTML = kfRows.map(r=>{
+      const action=(r.action||'').toUpperCase();
+      const aCol=action==='BUY'?'var(--up)':action==='SELL'?'var(--dn)':'var(--fg-mute)';
+      const fv=parseFloat(r.effective_f||r.full_kelly||0).toFixed(4);
+      const pv=parseFloat(r.gated_pos_pct||r.pos_pct||0);
+      const note=(r.note||'').slice(0,28);
+      return `<tr>
+        <td><span class="tk">${r.ticker||''}</span></td>
+        <td style="color:${aCol};font-weight:700;font-size:10px">${action||'—'}</td>
+        <td style="color:var(--fg-dim)">${fv}</td>
+        <td style="color:${pv>0?'var(--up)':'var(--fg-mute)'};font-weight:600">${(pv*100).toFixed(1)}%</td>
+        <td style="color:var(--gold)">${r.regime||'—'}</td>
+        <td style="color:var(--fg-mute);font-size:9px" title="${r.note||''}">${note}${note.length===28?'…':''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Pairs table
+  const pkb = document.getElementById('pairsKellyBody');
+  if (kpRows && pkb) {
+    pkb.innerHTML = kpRows.map(r=>{
+      const sig=(r.signal||'').toUpperCase();
+      const sCol=sig.includes('LONG')?'var(--up)':sig.includes('SHORT')?'var(--dn)':'var(--fg-mute)';
+      const pv=parseFloat(r.gated_pos_pct||r.pos_pct||0);
+      const hl=parseFloat(r.halflife_days||r.half_life||0);
+      return `<tr>
+        <td><span class="tk">${r.stock_a||r.pair_a||''}</span> / <span class="tk">${r.stock_b||r.pair_b||''}</span></td>
+        <td style="color:${sCol};font-weight:700;font-size:10px">${sig||'—'}</td>
+        <td style="color:var(--fg-dim)">${parseFloat(r.effective_f||0).toFixed(4)}</td>
+        <td style="color:${pv>0?'var(--up)':'var(--fg-mute)';font-weight:600}">${(pv*100).toFixed(1)}%</td>
+        <td style="color:var(--blue)">${hl>0?hl.toFixed(1)+'d':'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+})();
+
+/* ── 15. Cointegration Pairs table ── */
+(async () => {
+  const rows = await fetchCSV(GH_ALPHA + 'cointegration_tradeable.csv');
+  const cb = document.getElementById('cointBody');
+  if (!rows || !cb) return;
+  const tradeable = rows.filter(r=>(r.cointegrated||'').toLowerCase()==='true' || r.cointegrated==='True');
+  cb.innerHTML = tradeable.map(r=>{
+    const hl=parseFloat(r.halflife_days||r.halflife||0);
+    const tr_stat=parseFloat(r.trace_stat||0).toFixed(2);
+    const tr_crit=parseFloat(r.trace_crit_95||15.49).toFixed(2);
+    const beat=parseFloat(r.trace_stat||0)>parseFloat(r.trace_crit_95||15.49);
+    const beta=parseFloat(r.beta_b||0).toFixed(3);
+    const std=parseFloat(r.spread_std||0).toFixed(3);
+    const hlColor=hl<30?'var(--up)':hl<60?'var(--gold)':'var(--dn)';
+    return `<tr>
+      <td><span class="tk">${r.stock_a||''}</span> · <span class="tk">${r.stock_b||''}</span></td>
+      <td style="color:var(--fg-dim)">${r.r||'—'}</td>
+      <td style="color:${beat?'var(--up)':'var(--dn)'}">${tr_stat} <span style="color:var(--fg-faint);font-size:9px">vs ${tr_crit}</span></td>
+      <td style="color:var(--fg-dim)">${beta}</td>
+      <td style="color:${hlColor};font-weight:700">${hl>0?hl.toFixed(1)+'d':'—'}</td>
+      <td style="color:var(--fg-mute)">${std}</td>
+      <td><span style="color:var(--up);font-size:10px;font-weight:700">✓ COINT</span></td>
+    </tr>`;
+  }).join('');
+})();
+
+/* ── 16. Live Market — Nifty50 + SPY + USDINR via Yahoo Finance ── */
+(async () => {
+  const SYMBOLS = [
+    { sym:'^NSEI',    label:'Nifty50',  decimals:0 },
+    { sym:'SPY',      label:'SPY',      decimals:2 },
+    { sym:'USDINR=X', label:'USD/INR',  decimals:4 },
+  ];
+  const strip = document.getElementById('marketStrip');
+  const niftyTimeEl = document.getElementById('niftyTime');
+
+  // Fetch 5d hourly data for Nifty chart + current prices
+  async function fetchYahoo(sym, range='5d', interval='1h') {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}&corsDomain=finance.yahoo.com`;
+    try {
+      const r = await fetch(url, { mode:'cors' });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch { return null; }
+  }
+
+  // Render market strip with current prices
+  const prices = await Promise.all(SYMBOLS.map(s => fetchYahoo(s.sym, '1d', '1m')));
+  if (strip) {
+    strip.innerHTML = SYMBOLS.map((s,i) => {
+      const result = prices[i]?.chart?.result?.[0];
+      const meta   = result?.meta;
+      const price  = meta?.regularMarketPrice;
+      const prev   = meta?.previousClose || meta?.chartPreviousClose;
+      const chg    = price && prev ? ((price-prev)/prev*100) : null;
+      const col    = chg !== null ? (chg>=0?'var(--up)':'var(--dn)') : 'var(--fg-dim)';
+      return `<div style="padding:8px 10px;border-right:1px solid var(--line)">
+        <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.1em;text-transform:uppercase">${s.label}</div>
+        <div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:var(--fg);margin-top:1px">${price?price.toFixed(s.decimals):'—'}</div>
+        <div style="font-family:var(--font-num);font-size:var(--fs-xs);color:${col};margin-top:1px">${chg!==null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'—'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Nifty 5d chart
+  const niftyData = await fetchYahoo('^NSEI', '5d', '1h');
+  const niftyCan  = document.getElementById('niftyChart');
+  if (niftyData && niftyCan) {
+    const result = niftyData.chart?.result?.[0];
+    const timestamps = result?.timestamp || [];
+    const closes = result?.indicators?.quote?.[0]?.close || [];
+    const validPairs = timestamps.map((t,i)=>({ t:new Date(t*1000), v:closes[i] })).filter(p=>p.v!=null);
+    const labels = validPairs.map(p=>p.t.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false}));
+    const vals   = validPairs.map(p=>p.v);
+    const startV = vals[0] || 0;
+    const lineCol = vals[vals.length-1]>=startV ? 'rgba(16,185,129,0.9)' : 'rgba(239,68,68,0.9)';
+    if (niftyTimeEl) niftyTimeEl.textContent = validPairs.length ? validPairs[validPairs.length-1].t.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) + ' IST' : '';
+    new Chart(niftyCan.getContext('2d'),{
+      type:'line',
+      data:{ labels, datasets:[{
+        data:vals, borderColor:lineCol,
+        backgroundColor:vals[vals.length-1]>=startV?'rgba(16,185,129,0.07)':'rgba(239,68,68,0.07)',
+        fill:true, tension:0.2, pointRadius:0, borderWidth:1.5,
+      }]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`₹${ctx.parsed.y.toFixed(0)}` }}},
+        scales:{ x:{ticks:{color:'var(--fg-mute)',font:{size:8},maxTicksLimit:8}, grid:{display:false}},
+                 y:{ticks:{color:'var(--fg-mute)',font:{size:9},callback:v=>v.toFixed(0)}, grid:{color:'rgba(255,255,255,0.05)'}} }}
+    });
+  }
 })();
 
 </script>
