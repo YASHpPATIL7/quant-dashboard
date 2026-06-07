@@ -2833,31 +2833,48 @@ function showMorning(tab) {
 
   // Fetch 5d hourly data for Nifty chart + current prices
   async function fetchYahoo(sym, range='5d', interval='1h') {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}&corsDomain=finance.yahoo.com`;
-    try {
-      const r = await fetch(url, { mode:'cors' });
-      if (!r.ok) return null;
-      return await r.json();
-    } catch { return null; }
+    const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}&includePrePost=false`;
+    // Try three routes: corsproxy → allorigins → direct
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(yhUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(yhUrl)}`,
+      yhUrl,
+    ];
+    for (const url of proxies) {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!r.ok) continue;
+        const txt = await r.text();
+        const json = JSON.parse(txt);
+        if (json?.chart?.result) return json;
+      } catch { continue; }
+    }
+    return null;
   }
 
-  // Render market strip with current prices
-  const prices = await Promise.all(SYMBOLS.map(s => fetchYahoo(s.sym, '1d', '1m')));
+
+  // Render market strip with current prices (5d range ensures data even on weekends)
+  const prices = await Promise.all(SYMBOLS.map(s => fetchYahoo(s.sym, '5d', '1d')));
   if (strip) {
     strip.innerHTML = SYMBOLS.map((s,i) => {
       const result = prices[i]?.chart?.result?.[0];
       const meta   = result?.meta;
-      const price  = meta?.regularMarketPrice;
-      const prev   = meta?.previousClose || meta?.chartPreviousClose;
+      const closes = result?.indicators?.quote?.[0]?.close?.filter(v=>v!=null) || [];
+      // Use last close in array as price — works for both live and weekend/closed market
+      const price  = meta?.regularMarketPrice || (closes.length ? closes[closes.length-1] : null);
+      const prev   = meta?.previousClose || meta?.chartPreviousClose || (closes.length > 1 ? closes[closes.length-2] : null);
       const chg    = price && prev ? ((price-prev)/prev*100) : null;
       const col    = chg !== null ? (chg>=0?'var(--up)':'var(--dn)') : 'var(--fg-dim)';
+      const isWeekend = [0,6].includes(new Date().getDay());
+      const closedNote = isWeekend ? ' <span style="font-size:8px;opacity:.5">Fri close</span>' : '';
       return `<div style="padding:8px 10px;border-right:1px solid var(--line)">
         <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.1em;text-transform:uppercase">${s.label}</div>
-        <div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:var(--fg);margin-top:1px">${price?price.toFixed(s.decimals):'—'}</div>
+        <div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:var(--fg);margin-top:1px">${price?price.toFixed(s.decimals):'—'}${closedNote}</div>
         <div style="font-family:var(--font-num);font-size:var(--fs-xs);color:${col};margin-top:1px">${chg!==null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'—'}</div>
       </div>`;
     }).join('');
   }
+
 
   // Nifty 5d chart
   const niftyData = await fetchYahoo('^NSEI', '5d', '1h');
