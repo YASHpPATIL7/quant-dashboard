@@ -2788,7 +2788,7 @@ function showMorning(tab) {
         <td><span class="tk">${r.stock_a||r.pair_a||''}</span> / <span class="tk">${r.stock_b||r.pair_b||''}</span></td>
         <td style="color:${sCol};font-weight:700;font-size:10px">${sig||'—'}</td>
         <td style="color:var(--fg-dim)">${parseFloat(r.effective_f||0).toFixed(4)}</td>
-        <td style="color:${pv>0?'var(--up)':'var(--fg-mute)';font-weight:600}">${(pv*100).toFixed(1)}%</td>
+        <td style="color:${pv>0?'var(--up)':'var(--fg-mute)'};font-weight:600">${(pv*100).toFixed(1)}%</td>
         <td style="color:var(--blue)">${hl>0?hl.toFixed(1)+'d':'—'}</td>
       </tr>`;
     }).join('');
