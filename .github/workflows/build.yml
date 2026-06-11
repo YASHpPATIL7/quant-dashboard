@@ -1,0 +1,96 @@
+name: Build & Deploy Dashboard
+
+# Triggers:
+#   1. Push to this repo (index.html or inject_snapshot.py changed)
+#   2. Triggered externally by alpha-core or ml-portfolio-optimizer
+#      when their data CSVs are updated (via repository_dispatch)
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "index.html"
+      - "inject_snapshot.py"
+      - ".github/workflows/build.yml"
+
+  # Allow alpha-core / ml-portfolio-optimizer to trigger this
+  repository_dispatch:
+    types: [data-updated]
+
+  # Manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  inject-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout this dashboard repo ─────────────────────────────────
+      - name: Checkout quant-dashboard
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Checkout data repos alongside (sibling dirs) ─────────────────
+      - name: Checkout alpha-core (data)
+        uses: actions/checkout@v4
+        with:
+          repository: YASHpPATIL7/alpha-core
+          path: ../alpha-core
+          token: ${{ secrets.PAT_READ_REPOS }}  # PAT with read access to private repos
+          sparse-checkout: |
+            data/
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout live-trading-alpha (journal)
+        uses: actions/checkout@v4
+        with:
+          repository: YASHpPATIL7/live-trading-alpha
+          path: ../live-trading-alpha
+          token: ${{ secrets.PAT_READ_REPOS }}
+          sparse-checkout: |
+            alpaca_journal.csv
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout ml-portfolio-optimizer (data)
+        uses: actions/checkout@v4
+        with:
+          repository: YASHpPATIL7/ml-portfolio-optimizer
+          path: ../ml-portfolio-optimizer
+          token: ${{ secrets.PAT_READ_REPOS }}
+          sparse-checkout: |
+            data/
+          sparse-checkout-cone-mode: false
+
+      # ── 3. Set up Python ─────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 4. Inject snapshot values into index.html ────────────────────────
+      - name: Inject snapshot into HTML
+        run: |
+          python3 inject_snapshot.py --html index.html --data-root ..
+          echo "--- diff of patched values ---"
+          git diff --stat
+
+      # ── 5. Commit patched index.html back ────────────────────────────────
+      - name: Commit patched snapshot
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(snapshot): pre-render portfolio values [skip ci]"
+          file_pattern: "index.html"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+      # ── 6. Deploy to GitHub Pages ────────────────────────────────────────
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
+          exclude_assets: ".github,inject_snapshot.py,*.md"
+          force_orphan: false
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "deploy: update dashboard snapshot"

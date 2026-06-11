@@ -211,6 +211,56 @@
   .badge.alpha .dot     { background: var(--up); }
   .badge.portfolio .dot { background: var(--gold); }
 
+  /* ── PAPER TRADING badge ─────────────────────────────── */
+  .paper-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 10px;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.45);
+    border-radius: 2px;
+    font-family: var(--font-num);
+    font-size: var(--fs-xs); font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .paper-pill .pdot {
+    width: 6px; height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  /* inline paper tag used inside panel cells */
+  .paper-tag {
+    display: inline-block;
+    font-family: var(--font-num); font-size: 8.5px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid rgba(245,158,11,0.4);
+    background: rgba(245,158,11,0.07);
+    padding: 1px 5px; border-radius: 2px;
+    vertical-align: middle; margin-left: 5px;
+  }
+  /* stale data indicator */
+  .stale-note {
+    font-family: var(--font-num); font-size: var(--fs-xs);
+    color: var(--gold); letter-spacing: 0.06em;
+    opacity: 0.75;
+  }
+  /* methodology note strip */
+  .method-note {
+    padding: 5px 10px;
+    background: rgba(14,165,233,0.04);
+    border-top: 1px solid var(--line-faint);
+    border-bottom: 1px solid var(--line-faint);
+    font-family: var(--font-num); font-size: 9.5px;
+    color: var(--fg-mute); letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .method-note .mn-key {
+    color: var(--blue); font-weight: 600; margin-right: 5px;
+  }
+
   .pill {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 4px 10px;
@@ -939,6 +989,7 @@
 </style>
 </head>
 <body>
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-11 09:15 UTC -->
 
 <div class="app">
 
@@ -961,13 +1012,21 @@
       <div class="badge alpha">
         <span class="dot"></span>
         <span>Alpha-Core</span>
-        <span class="meta">XGB · IC 0.071</span>
+        <span class="meta">XGB · IC <span id="hdr-ic">0.071</span></span>
       </div>
       <div class="badge portfolio">
         <span class="dot"></span>
         <span>Portfolio Optimizer</span>
         <span class="meta">BL · MVO · HRP</span>
       </div>
+    </div>
+
+    <!-- ITEM 2: Persistent PAPER TRADING badge -->
+    <div class="paper-pill" title="All positions are simulated. No real capital is at risk.">
+      <span class="pdot"></span>
+      PAPER TRADING
+      <span style="color:var(--fg-mute);font-weight:500">·</span>
+      SIMULATED CAPITAL
     </div>
 
     <div class="pill bear">
@@ -983,7 +1042,9 @@
 
     <div class="cvar" style="border-left:1px solid var(--line);padding-left:16px;margin-left:4px">
       <span class="k">DATA AS OF</span>
-      <span class="v" style="font-size:13px;color:var(--fg-dim)" id="dataAsOf">loading…</span>
+      <!-- ITEM 3: pre-rendered snapshot value; JS refreshes on load -->
+      <span class="v" style="font-size:13px;color:var(--fg-dim)" id="dataAsOf"
+            data-snapshot="2026-05-26">2026-05-26</span>
     </div>
   </div>
 
@@ -1008,14 +1069,16 @@
         </div>
       </div>
       <div class="card-bd">
+        <!-- ITEM 2+3: PAPER badge + pre-rendered NAV from journal -->
         <div class="live-stat">
           <div class="cell">
-            <div class="k">Equity</div>
-            <div class="v">$104,827.41</div>
+            <div class="k">Portfolio NAV <span class="paper-tag">PAPER</span></div>
+            <!-- pre-rendered; JS replaces with live value -->
+            <div class="v" id="alpaca-nav" data-snapshot="$101,546.33">$101,546.33</div>
           </div>
           <div class="cell">
-            <div class="k">Day P&amp;L</div>
-            <div class="v up">+842.16<span class="s">+0.81%</span></div>
+            <div class="k">Cumulative P&amp;L <span class="paper-tag">PAPER</span></div>
+            <div class="v up" id="alpaca-pnl" data-snapshot="1546.33">+$1,546.33<span class="s" id="alpaca-pnl-pct">+1.55%</span></div>
           </div>
         </div>
 
@@ -1043,11 +1106,16 @@
             <div class="gp-cell"><div class="gp-k">Return</div><div class="gp-v up">+4.74%</div></div>
           </div>
         </div>
+        <!-- ITEM 5: Methodology note for panel [01] -->
+        <div class="method-note">
+          <span class="mn-key">METHOD</span>
+          NAV = $100K paper · US ETF sector proxies (XLV, XLF, QQQ…) mapped from NSE signals · delta-rebalanced daily · Alpaca paper API
+        </div>
         <!-- Alpaca performance stats strip -->
         <div class="perf-strip" id="alpacaPerfStrip">
-          <div class="cell"><div class="k">Total Return</div><div class="v" id="aps-ret">+0.02%</div></div>
+          <div class="cell"><div class="k">Total Return</div><div class="v" id="aps-ret" data-snapshot="+1.55%">+1.55%</div></div>
           <div class="cell"><div class="k">Win Rate</div><div class="v gold" id="aps-wr">—</div></div>
-          <div class="cell"><div class="k">Sessions</div><div class="v" id="aps-sess">—</div></div>
+          <div class="cell"><div class="k">Sessions</div><div class="v" id="aps-sess" data-snapshot="55">55</div></div>
           <div class="cell"><div class="k">Peak α vs SPY</div><div class="v up" id="aps-alpha">—</div></div>
         </div>
         <!-- Decision Quality Scorecard -->
@@ -1107,6 +1175,11 @@
             <div class="v">2.18×</div>
           </div>
         </div>
+        <!-- ITEM 5: Methodology note -->
+        <div class="method-note">
+          <span class="mn-key">METHOD</span>
+          Equity curve = cumulative product of daily log-returns · NSE EOD prices · no slippage · monthly rebalance · benchmark = equal-weight Nifty 50
+        </div>
       </div>
     </div>
 
@@ -1126,9 +1199,12 @@
       <div class="card-bd">
         <div class="donut-wrap">
           <canvas id="donutChart" class="donut-canvas"></canvas>
+          <!-- ITEM 1+2: NAV computed from portfolio JSON; labelled as paper -->
           <div class="donut-overlay">
-            <span class="k">Deployed NAV</span>
-            <span class="v">$1.42M</span>
+            <span class="k">BL Allocation</span>
+            <span class="v" id="donut-nav" data-snapshot="$101,546.33"
+                  title="Simulated capital · paper trading only">$101,546.33<span class="paper-tag" style="font-size:7.5px">SIM</span>
+            </span>
           </div>
         </div>
 
@@ -1147,6 +1223,11 @@
           </thead>
           <tbody id="icBody"></tbody>
         </table>
+        <!-- ITEM 5: Methodology note -->
+        <div class="method-note">
+          <span class="mn-key">METHOD</span>
+          BL: τ=0.05 · prior = market-cap weights · views = XGBoost predicted IC · Ω = proportional uncertainty · source: alpha-core/data/
+        </div>
       </div>
     </div>
   </div>
@@ -1513,14 +1594,30 @@ function parseCSV(text) {
   }).filter(Boolean);
 }
 
+/* ITEM 4: stale-data cache — on failure return last-known rows + tag stale */
+const _fetchCache = {};
 async function fetchCSV(url) {
   try {
     const sep = url.includes('?') ? '&' : '?';
-    const r = await fetch(url + sep + '_cb=' + _v);
+    const r = await fetch(url + sep + '_cb=' + _v, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error(r.status);
-    return parseCSV(await r.text());
+    const rows = parseCSV(await r.text());
+    _fetchCache[url] = { rows, ts: Date.now() };
+    return rows;
   } catch(e) {
-    console.warn('CSV fetch failed:', url, e);
+    console.warn('CSV fetch failed:', url, e.message);
+    // ITEM 4: return stale data if available; mark as stale
+    if (_fetchCache[url]) {
+      const { rows, ts } = _fetchCache[url];
+      const ago = new Date(ts);
+      const label = ago.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      // Show stale indicator in topbar
+      const el = document.getElementById('dataAsOf');
+      if (el && !el.dataset.live) {
+        el.innerHTML = `<span class="stale-note">stale · as of ${label}</span>`;
+      }
+      return rows;
+    }
     return null;
   }
 }
@@ -2101,10 +2198,19 @@ function buildAlpacaChart(values) {
   const initData = parseWeights(blRows) || BL_FALLBACK;
   window._donutCache['BL'] = initData;
   const total = initData.reduce((s,d) => s+d.w, 0);
-  const navEl = document.querySelector('.donut-overlay .v');
+  const navEl = document.getElementById('donut-nav');
   const navK  = document.querySelector('.donut-overlay .k');
-  if (navEl) navEl.textContent = (total*100).toFixed(1)+'%';
-  if (navK)  navK.textContent  = 'BL Allocation';
+  // ITEM 1: compute NAV from actual portfolio value × BL allocation weight
+  const latestNAV = window._latestNAV || parseFloat(document.getElementById('alpaca-nav')?.dataset.snapshot || 101546);
+  const deployedNav = latestNAV * total;
+  const fmtNav = deployedNav >= 1e6
+    ? '$' + (deployedNav/1e6).toFixed(3) + 'M'
+    : '$' + Math.round(deployedNav).toLocaleString('en-US');
+  if (navEl) {
+    navEl.innerHTML = fmtNav + ' <span class="paper-tag" style="font-size:7.5px">SIM</span>';
+    navEl.title = `Simulated: ${(total*100).toFixed(1)}% of $${latestNAV.toLocaleString('en-US',{maximumFractionDigits:0})} paper NAV · paper trading only`;
+  }
+  if (navK) navK.textContent = 'BL Allocation';
   const ctx = document.getElementById('donutChart').getContext('2d');
   window._donutChart = new Chart(ctx, {
     type: 'doughnut',
@@ -2152,8 +2258,13 @@ function buildAlpacaChart(values) {
       }
       if (!data) return;
       const t = data.reduce((s,d)=>s+d.w,0);
-      if (navEl) navEl.textContent = (t*100).toFixed(1)+'%';
-      if (navK)  navK.textContent  = labelMap[key] || key;
+      // ITEM 1: update NAV overlay when tab switches
+      const curNAV = window._latestNAV || parseFloat(document.getElementById('alpaca-nav')?.dataset.snapshot || 101546);
+      const dep = curNAV * t;
+      const fNav = dep >= 1e6 ? '$'+(dep/1e6).toFixed(3)+'M' : '$'+Math.round(dep).toLocaleString('en-US');
+      const navElInner = document.getElementById('donut-nav');
+      if (navElInner) navElInner.innerHTML = fNav + ' <span class="paper-tag" style="font-size:7.5px">SIM</span>';
+      if (navK) navK.textContent = labelMap[key] || key;
       window._donutChart.data.labels = data.map(d=>d.sym);
       window._donutChart.data.datasets[0].data = data.map(d=>d.w);
       window._donutChart.data.datasets[0].backgroundColor = data.map(d=>d.c);
@@ -2330,7 +2441,8 @@ function buildAlpacaChart(values) {
     { d:'Jun-01', pv:100015.64, bv:100900.00, a:-0.88 },
   ];
   let chartRows = FALLBACK_ROWS;
-  let latestNav = 100015.64, maxAlpha = 6.28, minAlpha = -3.18, cumAlpha = -0.88;
+  let latestNav = parseFloat(document.getElementById('alpaca-nav')?.dataset.snapshot || 100015.64);
+  let maxAlpha = 6.28, minAlpha = -3.18, cumAlpha = -0.88;
   if (rows && rows.length >= 5) {
     const parsed = rows.map(r => ({
       d:  (r.Date || r.Day || '').replace('Day ','D'),
@@ -2347,11 +2459,42 @@ function buildAlpacaChart(values) {
       cumAlpha   = alphas[alphas.length-1];
     }
   }
-  // KPI strip
-  const totalReturn = ((latestNav - 100000) / 100000 * 100).toFixed(2);
+  // ITEM 1+2: expose NAV globally so donut can use it; update live-stat cells
+  window._latestNAV = latestNav;
+  const navCell = document.getElementById('alpaca-nav');
+  if (navCell) {
+    navCell.textContent = '$' + latestNav.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    navCell.dataset.live = '1';
+  }
+  const pnlCell   = document.getElementById('alpaca-pnl');
+  const pnlPctEl  = document.getElementById('alpaca-pnl-pct');
+  const totalPnl  = latestNav - 100000;
+  const totalRet2 = (totalPnl / 100000 * 100);
+  if (pnlCell) {
+    pnlCell.className = 'v ' + (totalPnl >= 0 ? 'up' : 'dn');
+    pnlCell.innerHTML = (totalPnl >= 0 ? '+' : '') + '$' + Math.abs(totalPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      + '<span class="s" id="alpaca-pnl-pct">' + (totalRet2 >= 0 ? '+' : '') + totalRet2.toFixed(2) + '%</span>';
+    pnlCell.dataset.live = '1';
+  }
+  // ITEM 4: update DATA AS OF from journal date
+  const lastRow = rows && rows.length ? rows[rows.length-1] : null;
+  const dateEl = document.getElementById('dataAsOf');
+  if (dateEl && lastRow) {
+    const rawDate = lastRow.Date || lastRow.Day || '';
+    dateEl.textContent = rawDate || new Date().toLocaleDateString('en-IN');
+    dateEl.dataset.live = '1';
+  }
+  // ITEM 1+3: update perf strip with real values
+  const totalReturn = totalRet2.toFixed(2);
+  const retEl = document.getElementById('aps-ret');
+  const sessEl = document.getElementById('aps-sess');
+  if (retEl) { retEl.textContent = (totalRet2 >= 0 ? '+' : '') + totalReturn + '%'; retEl.className = 'v ' + (totalRet2 >= 0 ? 'up' : 'dn'); }
+  if (sessEl && rows) { sessEl.textContent = rows.length; }
+  // KPI strip — ITEM 2: add paper tag
+  const totalReturnFmt = totalRet2.toFixed(2);
   document.getElementById('alphaKPI').innerHTML = `
-    <div class="cell"><div class="k">Portfolio NAV</div><div class="v">$${latestNav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
-    <div class="cell"><div class="k">Total Return</div><div class="v ${parseFloat(totalReturn)>=0?'up':'dn'}">${parseFloat(totalReturn)>=0?'+':''}${totalReturn}%</div></div>
+    <div class="cell"><div class="k">Portfolio NAV <span class="paper-tag">PAPER</span></div><div class="v">$${latestNav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="cell"><div class="k">Total Return</div><div class="v ${parseFloat(totalReturnFmt)>=0?'up':'dn'}">${parseFloat(totalReturnFmt)>=0?'+':''}${totalReturnFmt}%</div></div>
     <div class="cell"><div class="k">Peak Alpha vs SPY</div><div class="v up">+${maxAlpha.toFixed(2)}%</div></div>
   `;
   // Chart
