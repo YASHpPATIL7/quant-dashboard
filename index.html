@@ -1012,7 +1012,7 @@
       <div class="badge alpha">
         <span class="dot"></span>
         <span>Alpha-Core</span>
-        <span class="meta">XGB · IC <span id="hdr-ic">0.071</span></span>
+        <span class="meta">XGB · IC <span id="hdr-ic">—</span></span>
       </div>
       <div class="badge portfolio">
         <span class="dot"></span>
@@ -1210,7 +1210,7 @@
 
         <div class="sub-hd">
           <span class="t">XGBoost · IC Signals</span>
-          <span class="meta">ic̄ <span class="v">0.071</span> · rank-ic <span class="v">0.083</span></span>
+          <span class="meta">ic̄ <span class="v">—</span> · rank-ic <span class="v">—</span></span>
         </div>
         <table class="ic-table">
           <thead>
@@ -2316,6 +2316,8 @@ function buildAlpacaChart(values) {
   const avgIC = ics.length ? (ics.reduce((a,b)=>a+b,0)/ics.length).toFixed(3) : '—';
   const subMeta = document.querySelector('.sub-hd .meta');
   if (subMeta) subMeta.innerHTML = `ic̄ <span class="v">${avgIC}</span>`;
+  const hdrIC = document.getElementById('hdr-ic');
+  if (hdrIC) hdrIC.textContent = avgIC;
 
   // Update IC table header to show Dir Acc column
   const icThead = document.querySelector('.ic-table thead tr');
