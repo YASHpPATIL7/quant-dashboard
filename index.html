@@ -1020,6 +1020,8 @@
 </style>
 </head>
 <body>
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 09:44 UTC -->
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 09:42 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 09:13 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 09:10 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:47 UTC -->
@@ -1195,6 +1197,14 @@
             <div style="font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--fg-mute);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px">Strategy vs Benchmarks</div>
             <div id="benchTable" style="display:flex;flex-direction:column;gap:4px"></div>
           </div>
+        </div>
+        <!-- Past sessions — daily trading activity from the journal -->
+        <div class="sl-hd"><span class="lbl">Past Sessions · daily activity</span></div>
+        <div style="overflow:auto;max-height:230px">
+          <table class="ic-table" id="spyLogTable">
+            <thead><tr><th style="text-align:left">Date</th><th>Position</th><th>NAV</th><th>Day P&amp;L</th><th>α vs SPY</th></tr></thead>
+            <tbody id="spyLogBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1975,6 +1985,27 @@ Chart.defaults.elements.line.borderWidth = 1.5;
 
   // (Strategy 2's allocation now renders in its own card [01b] — see loader below.)
 
+  // Past Sessions log — daily activity from the journal (most recent first)
+  const spyLog = document.getElementById('spyLogBody');
+  if (spyLog) {
+    const recent = rows.slice(-20).reverse();
+    spyLog.innerHTML = recent.map((r, i, arr) => {
+      const nav = parseFloat(r.Portfolio_Value || 0);
+      const prev = arr[i+1] ? parseFloat(arr[i+1].Portfolio_Value || nav) : parseFloat(r.Portfolio_Value || nav);
+      const dchg = nav - prev;
+      const alpha = parseFloat(r.Alpha_Pct || 0);
+      const status = (r.Status || '—').replace(/\s*\(T\d+\)/,'');
+      const flat = /flat/i.test(status);
+      return `<tr>
+        <td style="text-align:left;color:var(--fg-dim)">${esc(r.Date||'—')}</td>
+        <td style="color:${flat?'var(--gold)':'var(--fg)'};font-size:10px">${esc(status)}</td>
+        <td>$${nav.toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+        <td style="color:${dchg>=0?'var(--up)':'var(--dn)'}">${dchg>=0?'+':''}${dchg.toFixed(0)}</td>
+        <td style="color:${alpha>=0?'var(--up)':'var(--dn)'}">${alpha>=0?'+':''}${alpha.toFixed(2)}%</td>
+      </tr>`;
+    }).join('');
+  }
+
   buildAlpacaChart(values);
 
   // Set "Data as of" date from latest row in alpaca_journal
@@ -1997,61 +2028,62 @@ Chart.defaults.elements.line.borderWidth = 1.5;
 /* ── Alpaca 1D / 1W / 1M tab wiring ── */
 window._alpacaAllRows = null;
 
-/* ── [01b] Alpha-Core NSE→ETF live strategy — from alpaca_order_book.csv ── */
+/* ── [01b] Alpha-Core NSE→ETF — NAV + past sessions + current allocation ── */
 (async () => {
   const body = document.getElementById('acoreBody');
   const statusEl = document.getElementById('acoreStatus');
   if (!body) return;
-  const rows = await fetchCSV(GH_ALPHA + 'alpaca_order_book.csv');
-  const scanned = rows ? rows.length : 0;
-  const deployed = (rows||[]).filter(r => Math.abs(parseFloat(r.target_pct||0)) > 0.0001);
-  const neutral  = (rows||[]).filter(r => /neutral/i.test(r.xgb_signal||'') || /skip|flat/i.test(r.action||'')).length;
+  const hist = await fetchCSV(GH_ALPHA + 'alpaca_nav_history.csv');   // built by append_nav_journal()
+  const ob   = await fetchCSV(GH_ALPHA + 'alpaca_order_book.csv');
+  const deployed = (ob||[]).filter(r => Math.abs(parseFloat(r.target_pct||0)) > 0.0001);
   const isFlat = deployed.length === 0;
+  const haveHist = hist && hist.length;
+
+  const navNow = haveHist ? parseFloat(hist[hist.length-1].Portfolio_Value || 100000) : 100000;
+  const pnl = navNow - 100000, pnlPct = pnl/100000*100;
 
   if (statusEl) {
     statusEl.textContent = isFlat ? 'FLAT · 0% deployed' : `${deployed.length} legs live`;
     statusEl.style.color = isFlat ? 'var(--gold)' : 'var(--up)';
   }
 
-  const stat = (k,v,c) => `<div style="flex:1;min-width:90px"><div style="font-family:var(--font-ui);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-mute)">${k}</div><div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:${c||'var(--fg)'}">${v}</div></div>`;
+  // NAV header (mirrors [01])
+  let html =
+    `<div class="live-stat" style="margin-bottom:10px">
+       <div class="cell"><div class="k">Portfolio NAV <span class="paper-tag">PAPER</span></div>
+         <div class="v">$${navNow.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+       <div class="cell"><div class="k">Cumulative P&L <span class="paper-tag">PAPER</span></div>
+         <div class="v ${pnl>=0?'up':'dn'}">${pnl>=0?'+':''}$${Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}<span class="s">${pnl>=0?'+':''}${pnlPct.toFixed(2)}%</span></div></div>
+     </div>`;
 
-  if (isFlat) {
-    // Clean, intentional flat state — not a wall of junk rows.
-    body.innerHTML =
-      `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
-         <span style="font-family:var(--font-num);font-size:30px;font-weight:800;color:var(--gold);letter-spacing:.04em">FLAT</span>
-         <span style="color:var(--fg-dim);font-size:12px">100% in cash</span>
-       </div>
-       <div style="display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:10px">
-         ${stat('NSE names scanned', scanned||'—')}
-         ${stat('Signals neutral', (neutral||scanned)+'/'+(scanned||'—'), 'var(--gold)')}
-         ${stat('ETF legs open', '0', 'var(--fg-dim)')}
-         ${stat('Net exposure', '0%', 'var(--fg-dim)')}
-       </div>
-       <div style="font-size:11.5px;color:var(--fg-dim);line-height:1.6">
-         The engine only opens an ETF leg when an XGB signal clears its IC threshold.
-         Right now every NSE name reads <b>NEUTRAL</b>, so it stays in cash rather than
-         force a trade. This is the honest live state — no positions, not missing data.
-       </div>`;
-    return;
+  // Current allocation line
+  html += `<div style="font-size:11.5px;color:var(--fg-dim);line-height:1.55;border-bottom:1px solid var(--line);padding-bottom:9px;margin-bottom:9px">`
+    + (isFlat
+        ? `<b style="color:var(--gold)">FLAT — 100% cash.</b> Every NSE XGB signal currently reads NEUTRAL, so no ETF leg clears the IC threshold. In cash by design, not missing data.`
+        : `<b style="color:var(--up)">${deployed.length} ETF leg(s) live:</b> ` + deployed.map(r=>`${esc((r.etf_proxy||'').toUpperCase())} ${parseFloat(r.target_pct||0).toFixed(1)}%`).join(' · '))
+    + `</div>`;
+
+  // Past sessions table (from NAV journal)
+  html += `<div class="sl-hd" style="padding-left:0"><span class="lbl">Past Sessions · daily activity</span></div>`;
+  if (haveHist) {
+    const recent = hist.slice(-20).reverse();
+    html += `<div style="overflow:auto;max-height:200px"><table class="ic-table">
+      <thead><tr><th style="text-align:left">Date</th><th>Position</th><th>NAV</th><th>P&L %</th></tr></thead><tbody>` +
+      recent.map(r => {
+        const nav=parseFloat(r.Portfolio_Value||0), pp=parseFloat(r.PnL_Pct||0);
+        const st=(r.Status||'FLAT'); const flat=/flat/i.test(st);
+        return `<tr><td style="text-align:left;color:var(--fg-dim)">${esc(r.Date||'—')}</td>
+          <td style="color:${flat?'var(--gold)':'var(--fg)'};font-size:10px">${esc(st)}</td>
+          <td>$${nav.toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+          <td style="color:${pp>=0?'var(--up)':'var(--dn)'}">${pp>=0?'+':''}${pp.toFixed(2)}%</td></tr>`;
+      }).join('') + `</tbody></table></div>`;
+  } else {
+    html += `<div style="font-size:11px;color:var(--fg-dim);line-height:1.6;padding:8px 0">
+      No sessions logged yet. The NAV journaller (<code>append_nav_journal</code> in alpaca_gate.py)
+      writes one row per pipeline run to <code>alpaca_nav_history.csv</code> — this table fills in
+      from the next run onward. Account 1's history already shows in [01].</div>`;
   }
-
-  // Deployed: show the active legs compactly.
-  body.innerHTML =
-    `<div style="display:flex;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px">
-       ${stat('ETF legs open', deployed.length, 'var(--up)')}
-       ${stat('NSE names scanned', scanned)}
-     </div>
-     <table class="ic-table"><thead><tr><th style="text-align:left">NSE</th><th>ETF</th><th>Target %</th><th>XGB</th><th>Action</th></tr></thead><tbody>` +
-    deployed.map(r => {
-      const act=(r.action||'').toUpperCase();
-      const actColor=/BUY|LONG/.test(act)?'var(--up)':/SELL|SHORT/.test(act)?'var(--dn)':'var(--fg-mute)';
-      return `<tr><td style="text-align:left"><span class="tk">${esc((r.nse_ticker||'').toString())}</span></td>
-        <td style="color:var(--fg-dim)">${esc((r.etf_proxy||'').toUpperCase())}</td>
-        <td>${parseFloat(r.target_pct||0).toFixed(1)}%</td>
-        <td style="font-size:10px">${esc((r.xgb_signal||'').toUpperCase())}</td>
-        <td style="color:${actColor};font-size:10px;font-weight:700">${esc(act)}</td></tr>`;
-    }).join('') + `</tbody></table>`;
+  body.innerHTML = html;
 })();
 
 /* ── FinBERT Sentiment Table ────────────────────────────────────── */
