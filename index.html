@@ -1020,6 +1020,8 @@
 </style>
 </head>
 <body>
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 09:10 UTC -->
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:47 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:41 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:38 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:15 UTC -->
@@ -1206,15 +1208,12 @@
         </div>
         <span id="acoreStatus" style="font-family:var(--font-num);font-size:var(--fs-xs);color:var(--gold);margin-left:auto">—</span>
       </div>
-      <div class="card-bd" style="padding:0;overflow:auto">
+      <div class="card-bd" id="acoreTable" style="padding:0">
         <div class="method-note" style="border-bottom:1px solid var(--line)">
           <span class="mn-key">METHOD</span>
           Indian (NSE) XGBoost + Kelly signals mapped to liquid US-ETF proxies, executed on Alpaca. This is the live arm of the project's quant pipeline — distinct from the SPY-SMA momentum strategy in [01].
         </div>
-        <table class="ic-table" id="acoreTable">
-          <thead><tr><th style="text-align:left">NSE Signal</th><th>ETF Proxy</th><th>Target %</th><th>XGB</th><th>Action</th></tr></thead>
-          <tbody id="acoreBody"></tbody>
-        </table>
+        <div id="acoreBody" style="padding:14px 14px 16px"></div>
       </div>
     </div>
 
@@ -1876,13 +1875,23 @@ Chart.defaults.elements.line.borderWidth = 1.5;
     const upnl = parseFloat(last.Unrealized_PnL || 0);
     const ret  = parseFloat(last.PnL_Pct || 0);
     const set = (id, html, cls) => { const e = document.getElementById(id); if (e){ e.innerHTML = html; if (cls){ e.className = e.className.replace(/\b(up|dn)\b/g,''); e.classList.add(cls);} } };
-    set('acpos-side', isLong ? 'LONG' : (/flat/i.test(status) ? 'FLAT' : (status.split('(')[0]||'—').trim()));
-    set('acpos-qty', qtyM ? qtyM[1] : '—');
+    const cap = parseFloat(last.Capital_Deployed || 0);
+    const flat = !isLong || cap === 0;
+    set('acpos-side', isLong ? 'LONG' : 'FLAT');
+    const sideEl = document.getElementById('acpos-side');
+    if (sideEl) sideEl.style.color = isLong ? 'var(--up)' : 'var(--gold)';
+    const nEl = document.querySelector('.pos-card .sym .n');
+    if (nEl) nEl.textContent = flat ? 'in cash · awaiting SMA 10/30 crossover'
+                                    : 'SPDR S&P 500 ETF · trend-following';
+    set('acpos-qty', flat ? '0' : (qtyM ? qtyM[1] : '—'));
     set('acpos-last', '$' + parseFloat(last.SPY_Close || 0).toFixed(2));
-    set('acpos-cap', '$' + parseFloat(last.Capital_Deployed || 0).toLocaleString('en-US',{maximumFractionDigits:0}));
+    set('acpos-cap', '$' + cap.toLocaleString('en-US',{maximumFractionDigits:0}));
     set('acpos-pnl', (upnl>=0?'+':'') + '$' + Math.abs(upnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), upnl>=0?'up':'dn');
     set('acpos-ret', (ret>=0?'+':'') + ret.toFixed(2) + '%', ret>=0?'up':'dn');
-    set('acpos-sig', /bull/i.test(last.Signal_Saved||status)?'BULLISH':(/bear/i.test(last.Signal_Saved||status)?'BEARISH':'—'));
+    const sig = /bull/i.test(last.Signal_Saved||status)?'BULLISH':(/bear/i.test(last.Signal_Saved||status)?'BEARISH':'NEUTRAL');
+    set('acpos-sig', sig);
+    const sigEl = document.getElementById('acpos-sig');
+    if (sigEl) sigEl.style.color = sig==='BULLISH'?'var(--up)':sig==='BEARISH'?'var(--dn)':'var(--gold)';
   })();
 
   // Update stat cells
@@ -1891,13 +1900,12 @@ Chart.defaults.elements.line.borderWidth = 1.5;
     statCells[0].querySelector('.v').textContent = '$' + latest.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   }
   if (statCells[1]) {
-    const dayRows = rows.slice(-2);
-    const dayPnl  = dayRows.length > 1 ? (parseFloat(dayRows[1].Portfolio_Value || dayRows[1].portfolio_value || 0) - parseFloat(dayRows[0].Portfolio_Value || dayRows[0].portfolio_value || 0)) : 0;
-    const dayPct  = ((dayPnl / (parseFloat(dayRows[0]?.Portfolio_Value || 100000))) * 100).toFixed(2);
+    // CUMULATIVE P&L since inception (was wrongly showing today's change, which is
+    // $0 whenever the strategy is flat — making a profitable book look like 0).
     const vEl = statCells[1].querySelector('.v');
-    vEl.classList.toggle('up', dayPnl >= 0);
-    vEl.classList.toggle('dn', dayPnl < 0);
-    vEl.innerHTML = `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(2)}<span class="s">${dayPnl >= 0 ? '+' : ''}${dayPct}%</span>`;
+    vEl.classList.toggle('up', pnl >= 0);
+    vEl.classList.toggle('dn', pnl < 0);
+    vEl.innerHTML = `${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}<span class="s">${pnl >= 0 ? '+' : ''}${pnlPct}%</span>`;
   }
 
   // Performance strip
@@ -1994,34 +2002,55 @@ window._alpacaAllRows = null;
   const statusEl = document.getElementById('acoreStatus');
   if (!body) return;
   const rows = await fetchCSV(GH_ALPHA + 'alpaca_order_book.csv');
-  if (!rows || !rows.length) {
-    body.innerHTML = `<tr><td colspan="5" style="padding:12px;color:var(--fg-dim);font-size:11px">No order book published yet.</td></tr>`;
-    return;
-  }
-  // Deployed = any leg with a non-zero target; otherwise the engine is flat.
-  const deployed = rows.filter(r => Math.abs(parseFloat(r.target_pct||0)) > 0.0001);
+  const scanned = rows ? rows.length : 0;
+  const deployed = (rows||[]).filter(r => Math.abs(parseFloat(r.target_pct||0)) > 0.0001);
+  const neutral  = (rows||[]).filter(r => /neutral/i.test(r.xgb_signal||'') || /skip|flat/i.test(r.action||'')).length;
   const isFlat = deployed.length === 0;
+
   if (statusEl) {
     statusEl.textContent = isFlat ? 'FLAT · 0% deployed' : `${deployed.length} legs live`;
     statusEl.style.color = isFlat ? 'var(--gold)' : 'var(--up)';
   }
-  const show = isFlat ? rows.slice(0, 8) : deployed;   // when flat, show the signal scan
-  body.innerHTML = show.map(r => {
-    const nse = (r.nse_ticker||'').toString().trim() || '—';
-    const etf = (r.etf_proxy||'').toString().trim().toUpperCase() || '—';
-    const tgt = parseFloat(r.target_pct||0);
-    const xgb = (r.xgb_signal||'').toString().trim().toUpperCase() || '—';
-    const act = (r.action||'').toString().trim().toUpperCase();
-    const actColor = /BUY|LONG/.test(act)?'var(--up)':/SELL|SHORT/.test(act)?'var(--dn)':'var(--fg-mute)';
-    const xColor = xgb.includes('BULL')?'var(--up)':xgb.includes('BEAR')?'var(--dn)':'var(--fg-dim)';
-    return `<tr>
-      <td style="text-align:left"><span class="tk">${esc(nse)}</span></td>
-      <td style="color:var(--fg-dim)">${esc(etf)}</td>
-      <td style="color:${Math.abs(tgt)>0?'var(--fg)':'var(--fg-faint)'}">${tgt.toFixed(1)}%</td>
-      <td style="color:${xColor};font-size:10px">${esc(xgb)}</td>
-      <td style="color:${actColor};font-size:10px;font-weight:700">${esc(act||'—')}</td>
-    </tr>`;
-  }).join('') + (isFlat ? `<tr><td colspan="5" style="padding:8px 12px;color:var(--fg-dim);font-size:10px;border-top:1px solid var(--line)">Engine is flat — every NSE signal is currently neutral, so no ETF legs are deployed. This is the honest state, not missing data.</td></tr>` : '');
+
+  const stat = (k,v,c) => `<div style="flex:1;min-width:90px"><div style="font-family:var(--font-ui);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-mute)">${k}</div><div style="font-family:var(--font-num);font-size:17px;font-weight:700;color:${c||'var(--fg)'}">${v}</div></div>`;
+
+  if (isFlat) {
+    // Clean, intentional flat state — not a wall of junk rows.
+    body.innerHTML =
+      `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+         <span style="font-family:var(--font-num);font-size:30px;font-weight:800;color:var(--gold);letter-spacing:.04em">FLAT</span>
+         <span style="color:var(--fg-dim);font-size:12px">100% in cash</span>
+       </div>
+       <div style="display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:10px">
+         ${stat('NSE names scanned', scanned||'—')}
+         ${stat('Signals neutral', (neutral||scanned)+'/'+(scanned||'—'), 'var(--gold)')}
+         ${stat('ETF legs open', '0', 'var(--fg-dim)')}
+         ${stat('Net exposure', '0%', 'var(--fg-dim)')}
+       </div>
+       <div style="font-size:11.5px;color:var(--fg-dim);line-height:1.6">
+         The engine only opens an ETF leg when an XGB signal clears its IC threshold.
+         Right now every NSE name reads <b>NEUTRAL</b>, so it stays in cash rather than
+         force a trade. This is the honest live state — no positions, not missing data.
+       </div>`;
+    return;
+  }
+
+  // Deployed: show the active legs compactly.
+  body.innerHTML =
+    `<div style="display:flex;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px">
+       ${stat('ETF legs open', deployed.length, 'var(--up)')}
+       ${stat('NSE names scanned', scanned)}
+     </div>
+     <table class="ic-table"><thead><tr><th style="text-align:left">NSE</th><th>ETF</th><th>Target %</th><th>XGB</th><th>Action</th></tr></thead><tbody>` +
+    deployed.map(r => {
+      const act=(r.action||'').toUpperCase();
+      const actColor=/BUY|LONG/.test(act)?'var(--up)':/SELL|SHORT/.test(act)?'var(--dn)':'var(--fg-mute)';
+      return `<tr><td style="text-align:left"><span class="tk">${esc((r.nse_ticker||'').toString())}</span></td>
+        <td style="color:var(--fg-dim)">${esc((r.etf_proxy||'').toUpperCase())}</td>
+        <td>${parseFloat(r.target_pct||0).toFixed(1)}%</td>
+        <td style="font-size:10px">${esc((r.xgb_signal||'').toUpperCase())}</td>
+        <td style="color:${actColor};font-size:10px;font-weight:700">${esc(act)}</td></tr>`;
+    }).join('') + `</tbody></table>`;
 })();
 
 /* ── FinBERT Sentiment Table ────────────────────────────────────── */
