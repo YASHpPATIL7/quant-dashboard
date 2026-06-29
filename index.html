@@ -1003,6 +1003,10 @@
   .tabsec{display:none;}
   .tabsec.active{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));
     gap:8px;align-items:start;}
+  /* Risk tab reads cluttered with 3 dense panels side-by-side — give them more
+     room: max 2 wide columns on desktop, single column below 1100px. */
+  .tabsec[data-tab="risk"].active{grid-template-columns:repeat(auto-fit,minmax(560px,1fr));}
+  @media (max-width:1100px){ .tabsec[data-tab="risk"].active{grid-template-columns:1fr;} }
   .zone{display:none!important;}
   /* mobile */
   @media (max-width:760px){
@@ -1016,6 +1020,8 @@
 </style>
 </head>
 <body>
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:41 UTC -->
+<!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:38 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-29 08:15 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-28 15:32 UTC -->
 <!-- snapshot: $101,546.33 · 2026-05-26 · built 2026-06-28 15:30 UTC -->
@@ -1080,8 +1086,8 @@
     </div>
 
     <div class="cvar">
-      <span class="k">CVaR · 95% · 1d</span>
-      <span class="v" id="cvarVal">−3.24%<small>/DAY</small></span>
+      <span class="k">CVaR · 95% · 1d · 1y window</span>
+      <span class="v" id="cvarVal">−1.66%<small>/DAY</small></span>
     </div>
 
     <div class="cvar" style="border-left:1px solid var(--line);padding-left:16px;margin-left:4px">
@@ -1110,8 +1116,8 @@
       <div class="card-hd">
         <div class="title">
           <span class="num">[01]</span>
-          <span>Alpaca · Live Strategy</span>
-          <span class="sub">/ paper</span>
+          <span>SPY · SMA 20/50 Momentum</span>
+          <span class="sub">/ live · Alpaca paper · since Mar 9</span>
         </div>
         <div class="tabs">
           <button class="on">1D</button>
@@ -1140,27 +1146,28 @@
           <span>09:30</span><span>10:30</span><span>11:30</span><span>12:30</span><span>13:30</span><span>14:30</span><span>15:30</span>
         </div>
 
+        <!-- Current position — populated live from alpaca_journal.csv (real SPY trade) -->
         <div class="pos-card">
           <div class="row1l">
             <div class="sym">
-              <span class="t">XLV</span>
-              <span class="n">Health Care Select Sector</span>
+              <span class="t" id="acpos-sym">SPY</span>
+              <span class="n">SPDR S&amp;P 500 ETF · trend-following</span>
             </div>
-            <span class="side">LONG</span>
+            <span class="side" id="acpos-side">—</span>
           </div>
           <div class="grid-pos">
-            <div class="gp-cell"><div class="gp-k">Qty</div><div class="gp-v">23</div></div>
-            <div class="gp-cell"><div class="gp-k">Avg Cost</div><div class="gp-v">142.18</div></div>
-            <div class="gp-cell"><div class="gp-k">Last</div><div class="gp-v">148.92</div></div>
-            <div class="gp-cell"><div class="gp-k">Mkt Value</div><div class="gp-v">3,425.16</div></div>
-            <div class="gp-cell"><div class="gp-k">Unreal P&amp;L</div><div class="gp-v up">+155.02</div></div>
-            <div class="gp-cell"><div class="gp-k">Return</div><div class="gp-v up">+4.74%</div></div>
+            <div class="gp-cell"><div class="gp-k">Qty</div><div class="gp-v" id="acpos-qty">—</div></div>
+            <div class="gp-cell"><div class="gp-k">SPY Last</div><div class="gp-v" id="acpos-last">—</div></div>
+            <div class="gp-cell"><div class="gp-k">Capital Deployed</div><div class="gp-v" id="acpos-cap">—</div></div>
+            <div class="gp-cell"><div class="gp-k">Unreal P&amp;L</div><div class="gp-v" id="acpos-pnl">—</div></div>
+            <div class="gp-cell"><div class="gp-k">Return</div><div class="gp-v" id="acpos-ret">—</div></div>
+            <div class="gp-cell"><div class="gp-k">Signal</div><div class="gp-v" id="acpos-sig">—</div></div>
           </div>
         </div>
         <!-- ITEM 5: Methodology note for panel [01] -->
         <div class="method-note">
           <span class="mn-key">METHOD</span>
-          NAV = $100K paper · US ETF sector proxies (XLV, XLF, QQQ…) mapped from NSE signals · delta-rebalanced daily · Alpaca paper API
+          $100K Alpaca paper · trades <b>SPY</b> outright on a 10/30-day SMA crossover signal, gated by a 20/50-day SMA regime filter · benchmark = SPY buy-and-hold
         </div>
         <!-- Alpaca performance stats strip -->
         <div class="perf-strip" id="alpacaPerfStrip">
@@ -1186,6 +1193,28 @@
             <div id="benchTable" style="display:flex;flex-direction:column;gap:4px"></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Strategy 2: Alpha-Core NSE→ETF (live Alpaca, currently flat) -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="title">
+          <span class="num">[01b]</span>
+          <span>Alpha-Core · NSE→ETF</span>
+          <span class="sub">/ live · Alpaca paper · XGB + Kelly</span>
+        </div>
+        <span id="acoreStatus" style="font-family:var(--font-num);font-size:var(--fs-xs);color:var(--gold);margin-left:auto">—</span>
+      </div>
+      <div class="card-bd" style="padding:0;overflow:auto">
+        <div class="method-note" style="border-bottom:1px solid var(--line)">
+          <span class="mn-key">METHOD</span>
+          Indian (NSE) XGBoost + Kelly signals mapped to liquid US-ETF proxies, executed on Alpaca. This is the live arm of the project's quant pipeline — distinct from the SPY-SMA momentum strategy in [01].
+        </div>
+        <table class="ic-table" id="acoreTable">
+          <thead><tr><th style="text-align:left">NSE Signal</th><th>ETF Proxy</th><th>Target %</th><th>XGB</th><th>Action</th></tr></thead>
+          <tbody id="acoreBody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -1624,7 +1653,7 @@
     risk:       ['heatGrid','volStrip','reportCard'],
     signals:    ['sectorList','cointTable'],
     allocation: ['donutChart','btChart','frontierChart','sharpeTable','tiltTable','stratTable'],
-    live:       ['alpacaChart','alphaDecayChart'],
+    live:       ['alpacaChart','acoreTable','alphaDecayChart'],
   };
   const sec = t => document.querySelector('section[data-tab="'+t+'"]');
   Object.entries(MAP).forEach(([tab, ids])=>{
@@ -1640,17 +1669,17 @@
   document.querySelectorAll('.row1,.row2,.row3,.row4b').forEach(r=>{
     if(!r.querySelector('.card')) r.remove();
   });
-  // Honest framing on the Live Trading tab (US ETF proxy ≠ Indian strategy return)
+  // Header on the Live Trading tab — two distinct live strategies
   const live = sec('live');
   if (live){
     const note = document.createElement('div');
     note.style.cssText='grid-column:1/-1;font-family:var(--font-ui);font-size:12px;'
-      +'line-height:1.55;color:var(--fg-dim);background:rgba(245,158,11,.06);'
-      +'border:1px solid rgba(245,158,11,.28);border-radius:3px;padding:9px 12px;';
-    note.innerHTML='<b style="color:var(--gold)">Execution proxy.</b> '
-      +'NSE signals are executed via US sector-ETF proxies (XLF, XLE, XLV…) because '
-      +'Alpaca only supports US equities. This validates the live execution pipeline — '
-      +'it is <b>not</b> the Indian strategy’s return.';
+      +'line-height:1.55;color:var(--fg-dim);background:rgba(14,165,233,.05);'
+      +'border:1px solid rgba(14,165,233,.22);border-radius:3px;padding:9px 12px;';
+    note.innerHTML='<b style="color:var(--blue)">Two live Alpaca strategies.</b> '
+      +'<b>[01]</b> trades SPY outright on an SMA 10/30 + 20/50 crossover. '
+      +'<b>[01b]</b> is the project’s NSE XGB/Kelly engine mapped to US-ETF proxies. '
+      +'Both run on Alpaca paper — separate signals, separate books.';
     live.insertBefore(note, live.firstChild);
   }
   // Tab switching
@@ -1805,8 +1834,13 @@ Chart.defaults.elements.line.borderWidth = 1.5;
       const vals = tickers.map(t => parseFloat(r[t] || 0)).filter(v => !isNaN(v));
       return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : 0;
     }).filter(v => v !== 0);
-    // Sort ascending, take worst 5%
-    const sorted = [...portRets].sort((a,b) => a - b);
+    // Trailing 1-year (252-day) window — CURRENT risk, not all-history.
+    // The full-sample CVaR is dominated by the COVID-2020 tail and barely moves
+    // (it sits at -2.46% forever); a rolling window reflects today's risk and
+    // actually updates as data rolls forward.
+    const WINDOW = 252;
+    const recent = portRets.slice(-WINDOW);
+    const sorted = [...recent].sort((a,b) => a - b);
     const cutoff = Math.floor(sorted.length * 0.05);
     const cvarVal = cutoff > 0 ? sorted.slice(0, cutoff).reduce((a,b) => a+b, 0) / cutoff : -0.0324;
     const cvarPct = (cvarVal * 100).toFixed(2);
@@ -1831,6 +1865,25 @@ Chart.defaults.elements.line.borderWidth = 1.5;
   const first  = values[0];
   const pnl    = latest - first;
   const pnlPct = ((pnl / first) * 100).toFixed(2);
+
+  // Current SPY position — real values from the journal's last row (replaces XLV demo)
+  (() => {
+    const last = rows[rows.length - 1];
+    if (!last) return;
+    const status = last.Status || '';
+    const qtyM = status.match(/(\d+)\s*SPY/i);
+    const isLong = /long/i.test(status);
+    const upnl = parseFloat(last.Unrealized_PnL || 0);
+    const ret  = parseFloat(last.PnL_Pct || 0);
+    const set = (id, html, cls) => { const e = document.getElementById(id); if (e){ e.innerHTML = html; if (cls){ e.className = e.className.replace(/\b(up|dn)\b/g,''); e.classList.add(cls);} } };
+    set('acpos-side', isLong ? 'LONG' : (/flat/i.test(status) ? 'FLAT' : (status.split('(')[0]||'—').trim()));
+    set('acpos-qty', qtyM ? qtyM[1] : '—');
+    set('acpos-last', '$' + parseFloat(last.SPY_Close || 0).toFixed(2));
+    set('acpos-cap', '$' + parseFloat(last.Capital_Deployed || 0).toLocaleString('en-US',{maximumFractionDigits:0}));
+    set('acpos-pnl', (upnl>=0?'+':'') + '$' + Math.abs(upnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), upnl>=0?'up':'dn');
+    set('acpos-ret', (ret>=0?'+':'') + ret.toFixed(2) + '%', ret>=0?'up':'dn');
+    set('acpos-sig', /bull/i.test(last.Signal_Saved||status)?'BULLISH':(/bear/i.test(last.Signal_Saved||status)?'BEARISH':'—'));
+  })();
 
   // Update stat cells
   const statCells = document.querySelectorAll('.live-stat .cell');
@@ -1911,33 +1964,7 @@ Chart.defaults.elements.line.borderWidth = 1.5;
   }
 
 
-  // Update position card from alpaca_submitted.csv
-  const submittedRows = await fetchCSV(GH_ALPHA + 'alpaca_submitted.csv');
-  if (submittedRows && submittedRows.length) {
-    const pos = submittedRows[submittedRows.length - 1];
-    const etf = (pos.etf_proxy || pos.ETF || 'XLV').trim().toUpperCase();
-    const qty = pos.qty || pos.Qty || '23';
-    const side = (pos.side || pos.action || 'LONG').trim().toUpperCase();
-    const notional = parseFloat(pos.notional_usd || 0);
-    const ic = parseFloat(pos.xgb_ic || 0);
-
-    document.querySelector('.pos-card .sym .t').textContent = etf;
-    document.querySelector('.pos-card .side').textContent = side;
-
-    const cells = document.querySelectorAll('.pos-card .gp-cell');
-    if (cells[0]) cells[0].querySelector('.gp-v').textContent = qty;
-    if (cells[3]) cells[3].querySelector('.gp-v').textContent = '$' + notional.toLocaleString();
-    if (cells[4]) {
-      cells[4].querySelector('.gp-k').textContent = 'IC';
-      cells[4].querySelector('.gp-v').textContent = ic.toFixed(3);
-    }
-    if (cells[5]) {
-      cells[5].querySelector('.gp-k').textContent = 'Signal';
-      const sideClass = side === 'LONG' ? 'up' : 'dn';
-      cells[5].querySelector('.gp-v').classList.add(sideClass);
-      cells[5].querySelector('.gp-v').textContent = side;
-    }
-  }
+  // (Strategy 2's allocation now renders in its own card [01b] — see loader below.)
 
   buildAlpacaChart(values);
 
@@ -1960,6 +1987,42 @@ Chart.defaults.elements.line.borderWidth = 1.5;
 
 /* ── Alpaca 1D / 1W / 1M tab wiring ── */
 window._alpacaAllRows = null;
+
+/* ── [01b] Alpha-Core NSE→ETF live strategy — from alpaca_order_book.csv ── */
+(async () => {
+  const body = document.getElementById('acoreBody');
+  const statusEl = document.getElementById('acoreStatus');
+  if (!body) return;
+  const rows = await fetchCSV(GH_ALPHA + 'alpaca_order_book.csv');
+  if (!rows || !rows.length) {
+    body.innerHTML = `<tr><td colspan="5" style="padding:12px;color:var(--fg-dim);font-size:11px">No order book published yet.</td></tr>`;
+    return;
+  }
+  // Deployed = any leg with a non-zero target; otherwise the engine is flat.
+  const deployed = rows.filter(r => Math.abs(parseFloat(r.target_pct||0)) > 0.0001);
+  const isFlat = deployed.length === 0;
+  if (statusEl) {
+    statusEl.textContent = isFlat ? 'FLAT · 0% deployed' : `${deployed.length} legs live`;
+    statusEl.style.color = isFlat ? 'var(--gold)' : 'var(--up)';
+  }
+  const show = isFlat ? rows.slice(0, 8) : deployed;   // when flat, show the signal scan
+  body.innerHTML = show.map(r => {
+    const nse = (r.nse_ticker||'').toString().trim() || '—';
+    const etf = (r.etf_proxy||'').toString().trim().toUpperCase() || '—';
+    const tgt = parseFloat(r.target_pct||0);
+    const xgb = (r.xgb_signal||'').toString().trim().toUpperCase() || '—';
+    const act = (r.action||'').toString().trim().toUpperCase();
+    const actColor = /BUY|LONG/.test(act)?'var(--up)':/SELL|SHORT/.test(act)?'var(--dn)':'var(--fg-mute)';
+    const xColor = xgb.includes('BULL')?'var(--up)':xgb.includes('BEAR')?'var(--dn)':'var(--fg-dim)';
+    return `<tr>
+      <td style="text-align:left"><span class="tk">${esc(nse)}</span></td>
+      <td style="color:var(--fg-dim)">${esc(etf)}</td>
+      <td style="color:${Math.abs(tgt)>0?'var(--fg)':'var(--fg-faint)'}">${tgt.toFixed(1)}%</td>
+      <td style="color:${xColor};font-size:10px">${esc(xgb)}</td>
+      <td style="color:${actColor};font-size:10px;font-weight:700">${esc(act||'—')}</td>
+    </tr>`;
+  }).join('') + (isFlat ? `<tr><td colspan="5" style="padding:8px 12px;color:var(--fg-dim);font-size:10px;border-top:1px solid var(--line)">Engine is flat — every NSE signal is currently neutral, so no ETF legs are deployed. This is the honest state, not missing data.</td></tr>` : '');
+})();
 
 /* ── FinBERT Sentiment Table ────────────────────────────────────── */
 (async () => {
